@@ -1,10 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
 import { Product, Client, Invoice, Expense, User, ReturnRecord, UserPermissions, defaultPermissions } from './types';
-
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '');
 
 const PRODUCTS_KEY = 'bakhcha_products';
 const CLIENTS_KEY = 'bakhcha_clients';
@@ -17,167 +11,162 @@ const RETURNS_KEY = 'bakhcha_returns';
 const CART_DISPLAY_KEY = 'bakhcha_cart_display';
 const CURRENT_USER_KEY = 'bakhcha_current_user';
 
-// --- Sync Functions (Sync local storage for fast initial load) ---
-export function getLocalUser(): User | null {
-  const data = localStorage.getItem(CURRENT_USER_KEY);
+const defaultProducts: Product[] = [
+  { id: 1, name: 'منتج تجريبي مع ضريبة', barcode: '123456789', quantity: 31, buyPrice: 60, sellPrice: 100, category: 'عام', expiryDate: null, minStock: 5, image: '' },
+  { id: 2, name: 'شوكولاطة', barcode: '5901234123457', quantity: 682, buyPrice: 450, sellPrice: 700, category: 'مواد غذائية', expiryDate: null, minStock: 10, image: '' },
+  { id: 3, name: 'مربى', barcode: '4006381333931', quantity: 493, buyPrice: 75, sellPrice: 117, category: 'مواد غذائية', expiryDate: '2026-03-25', minStock: 5, image: '' },
+  { id: 4, name: 'ماكسي', barcode: '8690504012009', quantity: 5988, buyPrice: 400, sellPrice: 617, category: 'حليب ومشتقاته', expiryDate: '2026-04-19', minStock: 10, image: '' },
+  { id: 5, name: 'عطر فخم', barcode: '2958642392', quantity: 495, buyPrice: 1800, sellPrice: 2500, category: 'عام', expiryDate: null, minStock: 5, image: '' },
+  { id: 6, name: 'sucre', barcode: '2955208208', quantity: 50, buyPrice: 180, sellPrice: 250, category: 'مواد غذائية', expiryDate: null, minStock: 5, image: '' },
+  { id: 7, name: 'sucre', barcode: '2943991599', quantity: 47, buyPrice: 350, sellPrice: 520, category: 'مواد غذائية', expiryDate: null, minStock: 5, image: '' },
+  { id: 8, name: 'sucre1', barcode: '2925564643', quantity: 6, buyPrice: 35, sellPrice: 55, category: 'مواد غذائية', expiryDate: null, minStock: 5, image: '' },
+  { id: 9, name: 'tomate', barcode: '2937910599', quantity: 200, buyPrice: 170, sellPrice: 250, category: 'مواد غذائية', expiryDate: null, minStock: 5, image: '' },
+  { id: 10, name: 'ff', barcode: '2994065328', quantity: 100, buyPrice: 170, sellPrice: 250, category: 'عام', expiryDate: null, minStock: 5, image: '' },
+];
+
+const defaultClients: Client[] = [
+  { id: 1, name: 'عميل نقدي', phone: '', debt: 0 },
+  { id: 2, name: 'أحمد محمد', phone: '0555-12-34-56', debt: 1500 },
+  { id: 3, name: 'خالد علي', phone: '0666-78-90-12', debt: 3200 },
+];
+
+const defaultUsers: User[] = [
+  { id: 1, username: 'admin', password: 'admin', role: 'مدير', fullName: 'المدير العام', phone: '0555000000', active: true, permissions: defaultPermissions['مدير'] },
+  { id: 2, username: 'cashier1', password: '1234', role: 'كاشير', fullName: 'كاشير 1', phone: '0666000000', active: true, permissions: defaultPermissions['كاشير'] },
+  { id: 3, username: 'supervisor', password: '1234', role: 'مشرف', fullName: 'المشرف', phone: '0777000000', active: true, permissions: defaultPermissions['مشرف'] },
+];
+
+const defaultCategories = ['الكل', 'حليب ومشتقاته', 'عام', 'مواد غذائية'];
+
+const defaultSettings: Record<string, any> = {
+  storeName: 'Bakhcha Pro Supermarket',
+  phone: '55-55-55-0555',
+  address: 'حي المعارض الشريعة',
+  defaultTax: 17,
+  currency: 'دج',
+  logo: '',
+  invoiceTitle: '',
+  invoiceFooter: 'شكراً لزيارتكم - نتمنى لكم يوماً سعيداً 🙏',
+  invoiceNotes: '',
+  taxNumber: '',
+  nif: '',
+  showLogoOnInvoice: true,
+  showQROnInvoice: true,
+  showBarcodeOnInvoice: true,
+  invoiceSize: 'receipt',
+  customerWelcome: 'مرحباً بكم',
+  customerAd: '',
+  showLogoOnDisplay: true,
+  displayTheme: 'dark',
+};
+
+export function getProducts(): Product[] {
+  const data = localStorage.getItem(PRODUCTS_KEY);
   if (data) return JSON.parse(data);
-  return null;
+  localStorage.setItem(PRODUCTS_KEY, JSON.stringify(defaultProducts));
+  return defaultProducts;
 }
 
-// --- Async Supabase Functions ---
-
-// Products
-export async function getProducts(): Promise<Product[]> {
-  const { data, error } = await supabase.from('products').select('*').order('id', { ascending: true });
-  if (error) {
-    console.error('Error fetching products:', error);
-    const local = localStorage.getItem(PRODUCTS_KEY);
-    return local ? JSON.parse(local) : [];
-  }
-  localStorage.setItem(PRODUCTS_KEY, JSON.stringify(data));
-  return data || [];
+export function saveProducts(products: Product[]) {
+  localStorage.setItem(PRODUCTS_KEY, JSON.stringify(products));
 }
 
-export async function saveProduct(product: Partial<Product>) {
-  if (product.id) {
-    const { data, error } = await supabase.from('products').update(product).eq('id', product.id).select();
-    return { data: data?.[0], error };
-  } else {
-    // New product: exclude ID for auto-increment if handled by Supabase
-    const { id, ...newProduct } = product as any;
-    const { data, error } = await supabase.from('products').insert([newProduct]).select();
-    return { data: data?.[0], error };
-  }
+export function getClients(): Client[] {
+  const data = localStorage.getItem(CLIENTS_KEY);
+  if (data) return JSON.parse(data);
+  localStorage.setItem(CLIENTS_KEY, JSON.stringify(defaultClients));
+  return defaultClients;
 }
 
-export async function deleteProducts(ids: number[]) {
-  const { error } = await supabase.from('products').delete().in('id', ids);
-  return { error };
+export function saveClients(clients: Client[]) {
+  localStorage.setItem(CLIENTS_KEY, JSON.stringify(clients));
 }
 
-// Clients
-export async function getClients(): Promise<Client[]> {
-  const { data, error } = await supabase.from('clients').select('*').order('name', { ascending: true });
-  if (error) {
-    console.error('Error fetching clients:', error);
-    const local = localStorage.getItem(CLIENTS_KEY);
-    return local ? JSON.parse(local) : [];
-  }
-  localStorage.setItem(CLIENTS_KEY, JSON.stringify(data));
-  return data || [];
+export function getInvoices(): Invoice[] {
+  const data = localStorage.getItem(INVOICES_KEY);
+  if (data) return JSON.parse(data);
+  return [];
 }
 
-export async function saveClient(client: Partial<Client>) {
-  if (client.id) {
-    const { data, error } = await supabase.from('clients').update(client).eq('id', client.id).select();
-    return { data: data?.[0], error };
-  } else {
-    const { id, ...newClient } = client as any;
-    const { data, error } = await supabase.from('clients').insert([newClient]).select();
-    return { data: data?.[0], error };
-  }
+export function saveInvoices(invoices: Invoice[]) {
+  localStorage.setItem(INVOICES_KEY, JSON.stringify(invoices));
 }
 
-// Invoices
-export async function getInvoices(): Promise<Invoice[]> {
-  const { data, error } = await supabase.from('invoices').select('*').order('date', { ascending: false });
-  if (error) {
-    console.error('Error fetching invoices:', error);
-    const local = localStorage.getItem(INVOICES_KEY);
-    return local ? JSON.parse(local) : [];
-  }
-  localStorage.setItem(INVOICES_KEY, JSON.stringify(data));
-  return data || [];
+export function getExpenses(): Expense[] {
+  const data = localStorage.getItem(EXPENSES_KEY);
+  if (data) return JSON.parse(data);
+  return [];
 }
 
-export async function saveInvoice(invoice: Partial<Invoice>) {
-  const { data, error } = await supabase.from('invoices').insert([invoice]).select();
-  return { data: data?.[0], error };
+export function saveExpenses(expenses: Expense[]) {
+  localStorage.setItem(EXPENSES_KEY, JSON.stringify(expenses));
 }
 
-// Expenses
-export async function getExpenses(): Promise<Expense[]> {
-  const { data, error } = await supabase.from('expenses').select('*').order('date', { ascending: false });
-  if (error) return [];
-  return data || [];
+export function getUsers(): User[] {
+  const data = localStorage.getItem(USERS_KEY);
+  if (data) return JSON.parse(data);
+  localStorage.setItem(USERS_KEY, JSON.stringify(defaultUsers));
+  return defaultUsers;
 }
 
-export async function saveExpense(expense: Partial<Expense>) {
-  const { data, error } = await supabase.from('expenses').insert([expense]).select();
-  return { data: data?.[0], error };
+export function saveUsers(users: User[]) {
+  localStorage.setItem(USERS_KEY, JSON.stringify(users));
 }
 
-// Users
-export async function getUsers(): Promise<User[]> {
-  const { data, error } = await supabase.from('users').select('*');
-  if (error) {
-     const local = localStorage.getItem(USERS_KEY);
-     return local ? JSON.parse(local) : [];
-  }
-  return data || [];
+export function getSettings() {
+  const data = localStorage.getItem(SETTINGS_KEY);
+  if (data) return JSON.parse(data);
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(defaultSettings));
+  return defaultSettings;
 }
 
-export async function saveUser(user: Partial<User>) {
-  if (user.id) {
-    const { data, error } = await supabase.from('users').update(user).eq('id', user.id).select();
-    return { data: data?.[0], error };
-  } else {
-    const { id, ...newUser } = user as any;
-    const { data, error } = await supabase.from('users').insert([newUser]).select();
-    return { data: data?.[0], error };
-  }
-}
-
-// Settings
-export async function getSettings() {
-  const { data, error } = await supabase.from('settings').select('*').limit(1).single();
-  if (error) {
-    const local = localStorage.getItem(SETTINGS_KEY);
-    return local ? JSON.parse(local) : {};
-  }
-  return data || {};
-}
-
-export async function saveSettings(settings: Record<string, any>) {
-  // Assume one row in settings table
-  const { error } = await supabase.from('settings').upsert([{ id: 1, ...settings }]);
+export function saveSettings(settings: Record<string, any>) {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-  return { error };
 }
 
-// Plural aliases for compatibility
-export const saveInvoices = async (invs: any[]) => { for(const i of invs) await saveInvoice(i); };
-export const saveProducts = async (prods: any[]) => { for(const p of prods) await saveProduct(p); };
-export const saveClients = async (clis: any[]) => { for(const c of clis) await saveClient(c); };
-export const saveExpenses = async (exps: any[]) => { for(const e of exps) await saveExpense(e); };
-
-// Returns
-export async function getReturns() {
-  const { data, error } = await supabase.from('returns').select('*').order('date', { ascending: false });
-  return data || [];
+export function getCategories(): string[] {
+  const data = localStorage.getItem(CATEGORIES_KEY);
+  if (data) return JSON.parse(data);
+  localStorage.setItem(CATEGORIES_KEY, JSON.stringify(defaultCategories));
+  return defaultCategories;
 }
-export async function saveReturns(rets: any[]) { 
-  for(const r of rets) await supabase.from('returns').upsert([r]);
+
+export function saveCategories(categories: string[]) {
+  localStorage.setItem(CATEGORIES_KEY, JSON.stringify(categories));
+}
+
+export function getReturns(): ReturnRecord[] {
+  const data = localStorage.getItem(RETURNS_KEY);
+  if (data) return JSON.parse(data);
+  return [];
+}
+
+export function saveReturns(returns: ReturnRecord[]) {
+  localStorage.setItem(RETURNS_KEY, JSON.stringify(returns));
+}
+
+export function getCartDisplay() {
+  const data = localStorage.getItem(CART_DISPLAY_KEY);
+  if (data) return JSON.parse(data);
+  return { items: [], total: 0, storeName: defaultSettings.storeName };
+}
+
+export function saveCartDisplay(displayData: { items: { name: string; quantity: number; price: number; total: number }[]; total: number; storeName: string }) {
+  localStorage.setItem(CART_DISPLAY_KEY, JSON.stringify(displayData));
 }
 
 // Auth functions
-export async function loginUser(username: string, password: string): Promise<User | null> {
-  const { data, error } = await supabase
-    .from('users')
-    .select('*')
-    .eq('username', username)
-    .eq('password', password)
-    .eq('active', true)
-    .single();
-
-  if (error || !data) return null;
-  
-  const user = data as User;
-  const updatedUser = { ...user, lastLogin: new Date().toISOString() };
-  await supabase.from('users').update({ lastLogin: updatedUser.lastLogin }).eq('id', user.id);
-  
-  localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(updatedUser));
-  return updatedUser;
+export function loginUser(username: string, password: string): User | null {
+  const users = getUsers();
+  const user = users.find(u => u.username === username && u.password === password);
+  if (user && user.active !== false) {
+    const updatedUser = { ...user, lastLogin: new Date().toISOString() };
+    const updatedUsers = users.map(u => u.id === user.id ? updatedUser : u);
+    saveUsers(updatedUsers);
+    localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(updatedUser));
+    return updatedUser;
+  }
+  return null;
 }
 
 export function getCurrentUser(): User | null {
@@ -193,14 +182,4 @@ export function logoutUser() {
 export function getUserPermissions(user: User): UserPermissions {
   if (user.permissions) return user.permissions;
   return defaultPermissions[user.role] || defaultPermissions['كاشير'];
-}
-
-// Cart Display (for secondary screen)
-export function saveCartDisplay(displayData: any) {
-  localStorage.setItem(CART_DISPLAY_KEY, JSON.stringify(displayData));
-}
-
-export function getCartDisplay() {
-  const data = localStorage.getItem(CART_DISPLAY_KEY);
-  return data ? JSON.parse(data) : { items: [], total: 0 };
 }
