@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Barcode from 'react-barcode';
 import { Product, User } from '../types';
-import { getProducts, saveProducts, getCategories, saveCategories, getUserPermissions } from '../store';
+import { getProducts, saveProduct, deleteProducts, getUserPermissions } from '../store';
 import BarcodeModal from '../components/BarcodeModal';
 
 interface ProductsProps {
@@ -11,14 +11,13 @@ interface ProductsProps {
 export default function Products({ currentUser }: ProductsProps) {
   const perms = currentUser ? getUserPermissions(currentUser) : null;
   const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState('الكل');
   const [filterStatus, setFilterStatus] = useState('all');
   const [showAddModal, setShowAddModal] = useState(false);
   const [editProduct, setEditProduct] = useState<Product | null>(null);
   const [selectedProducts, setSelectedProducts] = useState<number[]>([]);
-  const [newCat, setNewCat] = useState('');
   const [barcodeProduct, setBarcodeProduct] = useState<Product | null>(null);
   const [showBarcodePreview, setShowBarcodePreview] = useState(false);
 
@@ -29,10 +28,18 @@ export default function Products({ currentUser }: ProductsProps) {
   const [formImage, setFormImage] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const categories = ['الكل', ...new Set(products.map(p => p.category))];
+
   useEffect(() => {
-    setProducts(getProducts());
-    setCategories(getCategories());
+    loadProducts();
   }, []);
+
+  const loadProducts = async () => {
+    setIsLoading(true);
+    const data = await getProducts();
+    setProducts(data);
+    setIsLoading(false);
+  };
 
   const today = new Date();
 
@@ -109,37 +116,34 @@ export default function Products({ currentUser }: ProductsProps) {
     reader.readAsDataURL(file);
   };
 
-  const saveProduct = () => {
+  const onSave = async () => {
     if (!form.name) { alert('أدخل اسم المنتج'); return; }
-    let updated: Product[];
-    if (editProduct) {
-      updated = products.map(p => p.id === editProduct.id ? {
-        ...p, ...form, expiryDate: form.expiryDate || null, image: formImage,
-      } : p);
+    const productData = {
+      ...form,
+      expiryDate: form.expiryDate || null,
+      image: formImage,
+      id: editProduct?.id
+    };
+    
+    const { error } = await saveProduct(productData);
+    if (error) {
+       alert('خطأ في الحفظ: ' + error.message);
     } else {
-      const newId = products.length > 0 ? Math.max(...products.map(p => p.id)) + 1 : 1;
-      updated = [...products, { id: newId, ...form, expiryDate: form.expiryDate || null, image: formImage }];
+       await loadProducts();
+       setShowAddModal(false);
     }
-    saveProducts(updated);
-    setProducts(updated);
-    setShowAddModal(false);
   };
 
-  const deleteSelected = () => {
+  const deleteSelected = async () => {
     if (selectedProducts.length === 0) { alert('اختر منتجات للحذف'); return; }
     if (!confirm(`هل أنت متأكد من حذف ${selectedProducts.length} منتج؟`)) return;
-    const updated = products.filter(p => !selectedProducts.includes(p.id));
-    saveProducts(updated);
-    setProducts(updated);
-    setSelectedProducts([]);
-  };
-
-  const addCategory = () => {
-    if (newCat && !categories.includes(newCat)) {
-      const updated = [...categories, newCat];
-      saveCategories(updated);
-      setCategories(updated);
-      setNewCat('');
+    
+    const { error } = await deleteProducts(selectedProducts);
+    if (error) {
+       alert('خطأ في الحذف: ' + error.message);
+    } else {
+       await loadProducts();
+       setSelectedProducts([]);
     }
   };
 
@@ -170,18 +174,18 @@ export default function Products({ currentUser }: ProductsProps) {
         svg { max-width: 170px; height: 45px; }
       </style></head><body>
       <div class="labels">
-        ${selected.map((p, i) => `
+        \${selected.map((p, i) => \`
           <div class="label">
-            <div class="pname">${p.name}</div>
-            <svg id="bc-${i}"></svg>
-            <div class="price">${p.sellPrice.toFixed(2)} دج</div>
+            <div class="pname">\${p.name}</div>
+            <svg id="bc-\${i}"></svg>
+            <div class="price">\${p.sellPrice.toFixed(2)} دج</div>
           </div>
-        `).join('')}
+        \`).join('')}
       </div>
       <script>
-        ${selected.map((p, i) => `
-          try { JsBarcode("#bc-${i}", "${p.barcode || p.id}", { format:"CODE128", width:1.3, height:35, displayValue:true, fontSize:9, margin:2 }); } catch(e){}
-        `).join('')}
+        \${selected.map((p, i) => \`
+          try { JsBarcode("#bc-\${i}", "\${p.barcode || p.id}", { format:"CODE128", width:1.3, height:35, displayValue:true, fontSize:9, margin:2 }); } catch(e){}
+        \`).join('')}
         setTimeout(() => window.print(), 600);
       <\/script></body></html>
     `);
@@ -190,7 +194,7 @@ export default function Products({ currentUser }: ProductsProps) {
 
   return (
     <div className="p-4 h-screen overflow-auto">
-      <h1 className="text-2xl font-bold text-center text-sky-400 mb-4">إدارة المنتجات لوحة التحكم</h1>
+      <h1 className="text-2xl font-bold text-center text-sky-400 mb-4">إدارة المنتجات (Supabase)</h1>
 
       {/* Search & Add */}
       <div className="flex items-center gap-3 mb-4 flex-wrap">
@@ -206,126 +210,75 @@ export default function Products({ currentUser }: ProductsProps) {
         <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
           placeholder="ابحث في المنتجات (الاسم أو الباركود)..."
           className="flex-1 bg-gray-900 text-white border border-gray-600 rounded-lg px-3 py-2 text-sm min-w-[200px]" />
+        <button onClick={loadProducts} className="bg-sky-600 text-white px-4 py-2 rounded-lg text-sm font-bold">🔄 تحديث</button>
       </div>
 
-      {/* Filter Buttons */}
-      <div className="flex gap-2 mb-3 flex-wrap">
-        <button onClick={() => setFilterStatus('all')} className={`px-4 py-1.5 rounded-lg font-bold text-sm ${filterStatus === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'}`}>جميع المنتجات</button>
-        <button onClick={() => setFilterStatus('low')} className={`px-4 py-1.5 rounded-lg font-bold text-sm ${filterStatus === 'low' ? 'bg-yellow-600 text-white' : 'bg-gray-700 text-gray-300'}`}>⚠️ مخزون منخفض</button>
-        <button onClick={() => setFilterStatus('soon')} className={`px-4 py-1.5 rounded-lg font-bold text-sm ${filterStatus === 'soon' ? 'bg-orange-600 text-white' : 'bg-gray-700 text-gray-300'}`}>⏳ قريب الانتهاء</button>
-        <button onClick={() => setFilterStatus('expired')} className={`px-4 py-1.5 rounded-lg font-bold text-sm ${filterStatus === 'expired' ? 'bg-red-600 text-white' : 'bg-gray-700 text-gray-300'}`}>❌ منتهي الصلاحية</button>
-      </div>
-
-      {/* Action Buttons */}
-      <div className="flex gap-2 mb-3 flex-wrap">
-        {(!perms || perms.editProduct) && (
-        <button onClick={() => { if(selectedProducts.length === 1) { const p = products.find(pr => pr.id === selectedProducts[0]); if(p) openEdit(p); } else alert('اختر منتج واحد للتعديل') }}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-lg font-bold text-sm">✏️ تعديل المنتج</button>
-        )}
-        {(!perms || perms.deleteProduct) && (
-        <button onClick={deleteSelected} className="bg-red-600 hover:bg-red-700 text-white px-4 py-1.5 rounded-lg font-bold text-sm">🗑️ حذف</button>
-        )}
-        <button onClick={printAllBarcodes} className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-1.5 rounded-lg font-bold text-sm">
-          🖨️ طباعة باركودات {selectedProducts.length > 0 ? `(${selectedProducts.length} مختار)` : '(الكل)'}
-        </button>
-        <button onClick={() => setShowBarcodePreview(!showBarcodePreview)} className={`px-4 py-1.5 rounded-lg font-bold text-sm ${showBarcodePreview ? 'bg-yellow-600 text-white' : 'bg-gray-700 text-gray-300'}`}>
-          📊 {showBarcodePreview ? 'إخفاء' : 'عرض'} الباركودات
-        </button>
-      </div>
-
-      {/* Stats */}
-      <div className="flex gap-3 mb-3 flex-wrap">
-        <span className="bg-green-800 text-green-300 px-3 py-1 rounded-lg text-sm">✅ آمنة: {stats.ok}</span>
-        <span className="bg-orange-800 text-orange-300 px-3 py-1 rounded-lg text-sm">⚠️ قريبة: {stats.soon}</span>
-        <span className="bg-red-800 text-red-300 px-3 py-1 rounded-lg text-sm">❌ منتهية: {stats.expired}</span>
-        <span className="text-sky-400 font-bold text-sm">الإجمالي: {stats.total}</span>
-      </div>
-
-      {/* Barcode Preview Grid */}
-      {showBarcodePreview && (
-        <div className="mb-4 bg-white rounded-2xl p-4 overflow-auto max-h-[300px]">
-          <h3 className="text-black font-bold text-center mb-3">📊 معاينة الباركودات</h3>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-            {filteredProducts.filter(p => p.barcode).map(p => (
-              <div 
-                key={p.id} 
-                className="border border-gray-300 rounded-lg p-2 text-center cursor-pointer hover:bg-gray-100 transition-all"
-                onClick={() => setBarcodeProduct(p)}
-              >
-                <p className="text-black text-xs font-bold mb-1 truncate">{p.name}</p>
-                <div className="flex justify-center transform scale-75 origin-center">
-                  <Barcode value={p.barcode} width={1} height={30} fontSize={8} margin={2} background="#fff" lineColor="#000" />
-                </div>
-                <p className="text-red-600 font-bold text-xs">{p.sellPrice} دج</p>
-              </div>
-            ))}
+      {isLoading ? (
+         <div className="flex justify-center py-10"><div className="w-10 h-10 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div></div>
+      ) : (
+        <>
+          {/* Action Buttons */}
+          <div className="flex gap-2 mb-3 flex-wrap">
+            {(!perms || perms.editProduct) && (
+            <button onClick={() => { if(selectedProducts.length === 1) { const p = products.find(pr => pr.id === selectedProducts[0]); if(p) openEdit(p); } else alert('اختر منتج واحد للتعديل') }}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-lg font-bold text-sm">✏️ تعديل المنتج</button>
+            )}
+            {(!perms || perms.deleteProduct) && (
+            <button onClick={deleteSelected} className="bg-red-600 hover:bg-red-700 text-white px-4 py-1.5 rounded-lg font-bold text-sm">🗑️ حذف</button>
+            )}
+            <button onClick={printAllBarcodes} className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-1.5 rounded-lg font-bold text-sm">
+              🖨️ طباعة باركودات {selectedProducts.length > 0 ? `(\${selectedProducts.length} مختار)` : '(الكل)'}
+            </button>
           </div>
-        </div>
-      )}
 
-      {/* Product Table */}
-      <div className="overflow-auto rounded-xl border border-gray-700">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-800">
-            <tr>
-              <th className="p-2">باركود</th>
-              <th className="p-2">صورة</th>
-              <th className="p-2">الأيام</th>
-              <th className="p-2">تاريخ الانتهاء</th>
-              <th className="p-2">سعر البيع</th>
-              <th className="p-2">الكمية</th>
-              <th className="p-2">الباركود</th>
-              <th className="p-2">الاسم</th>
-              <th className="p-2">ID</th>
-              <th className="p-2">
-                <input type="checkbox" onChange={(e) => {
-                  if (e.target.checked) setSelectedProducts(products.map(p => p.id));
-                  else setSelectedProducts([]);
-                }} />
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredProducts.map((p) => (
-              <tr key={p.id} className={`border-b border-gray-800 hover:bg-gray-700/50 cursor-pointer ${getRowColor(p)}`}
-                onDoubleClick={() => openEdit(p)}>
-                <td className="p-2 text-center">
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); setBarcodeProduct(p); }}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-2 py-0.5 rounded text-xs"
-                    title="عرض الباركود"
-                  >
-                    📊
-                  </button>
-                </td>
-                <td className="p-1 text-center">
-                  <div className="w-10 h-10 rounded overflow-hidden mx-auto bg-gray-700 flex items-center justify-center">
-                    {p.image ? (
-                      <img src={p.image} alt={p.name} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display='none'; }} />
-                    ) : (
-                      <span className="text-lg opacity-50">📦</span>
-                    )}
-                  </div>
-                </td>
-                <td className="p-2 text-center text-xs">{getDaysLeft(p)}</td>
-                <td className="p-2 text-center text-xs">{p.expiryDate || '-'}</td>
-                <td className="p-2 text-center">{p.sellPrice}</td>
-                <td className="p-2 text-center">{p.quantity}</td>
-                <td className="p-2 text-center text-xs">{p.barcode ? (p.barcode.length > 10 ? '...' + p.barcode.slice(-7) : p.barcode) : ''}</td>
-                <td className="p-2 text-right font-bold">{p.name}</td>
-                <td className="p-2 text-center">{p.id}</td>
-                <td className="p-2 text-center">
-                  <input type="checkbox" checked={selectedProducts.includes(p.id)}
-                    onChange={(e) => {
-                      if (e.target.checked) setSelectedProducts([...selectedProducts, p.id]);
-                      else setSelectedProducts(selectedProducts.filter(id => id !== p.id));
+          <div className="overflow-auto rounded-xl border border-gray-700">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-800">
+                <tr>
+                  <th className="p-2">باركود</th>
+                  <th className="p-2">صورة</th>
+                  <th className="p-2">سعر البيع</th>
+                  <th className="p-2">الكمية</th>
+                  <th className="p-2">الاسم</th>
+                  <th className="p-2">ID</th>
+                  <th className="p-2">
+                    <input type="checkbox" onChange={(e) => {
+                      if (e.target.checked) setSelectedProducts(products.map(p => p.id));
+                      else setSelectedProducts([]);
                     }} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredProducts.map((p) => (
+                  <tr key={p.id} className={`border-b border-gray-800 hover:bg-gray-700/50 cursor-pointer \${getRowColor(p)}`}
+                    onDoubleClick={() => openEdit(p)}>
+                    <td className="p-2 text-center">
+                      <button onClick={(e) => { e.stopPropagation(); setBarcodeProduct(p); }} className="bg-indigo-600 text-white px-2 py-0.5 rounded text-xs">📊</button>
+                    </td>
+                    <td className="p-1 text-center">
+                      <div className="w-10 h-10 rounded overflow-hidden mx-auto bg-gray-700 flex items-center justify-center">
+                        {p.image ? <img src={p.image} className="w-full h-full object-cover" /> : <span className="text-lg opacity-50">📦</span>}
+                      </div>
+                    </td>
+                    <td className="p-2 text-center text-sky-400 font-bold">{p.sellPrice}</td>
+                    <td className="p-2 text-center">{p.quantity}</td>
+                    <td className="p-2 text-right font-bold">{p.name}</td>
+                    <td className="p-2 text-center underline font-mono text-[10px] text-gray-500">{p.id}</td>
+                    <td className="p-2 text-center">
+                      <input type="checkbox" checked={selectedProducts.includes(p.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) setSelectedProducts([...selectedProducts, p.id]);
+                          else setSelectedProducts(selectedProducts.filter(id => id !== p.id));
+                        }} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
 
       {/* Barcode Modal */}
       {barcodeProduct && (
@@ -338,55 +291,6 @@ export default function Products({ currentUser }: ProductsProps) {
           <div className="bg-[#1e293b] rounded-2xl p-6 w-[560px] max-h-[90vh] overflow-auto shadow-2xl border border-gray-600" onClick={e => e.stopPropagation()}>
             <h3 className="text-xl font-bold text-sky-400 mb-4 text-center">{editProduct ? '✏️ تعديل المنتج' : '➕ إضافة منتج جديد'}</h3>
             <div className="space-y-3">
-              {/* Product Image */}
-              <div>
-                <label className="text-sm text-gray-400 mb-2 block">صورة المنتج</label>
-                <div className="flex gap-4 items-start">
-                  <div className="w-28 h-28 bg-gray-700 rounded-xl overflow-hidden flex items-center justify-center border-2 border-dashed border-gray-500 flex-shrink-0">
-                    {formImage ? (
-                      <img src={formImage} alt="preview" className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="text-center">
-                        <span className="text-4xl block">📷</span>
-                        <span className="text-[10px] text-gray-500">لا توجد صورة</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex-1 space-y-2">
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageUpload}
-                      className="hidden"
-                    />
-                    <button
-                      onClick={() => fileInputRef.current?.click()}
-                      className="w-full bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg text-sm font-bold transition-all"
-                    >
-                      📁 اختيار صورة من الجهاز
-                    </button>
-                    <button
-                      onClick={() => {
-                        const url = prompt('أدخل رابط الصورة (URL):');
-                        if (url) setFormImage(url);
-                      }}
-                      className="w-full bg-sky-600 hover:bg-sky-700 text-white px-3 py-1.5 rounded-lg text-sm font-bold transition-all"
-                    >
-                      🔗 إدخال رابط صورة
-                    </button>
-                    {formImage && (
-                      <button
-                        onClick={() => setFormImage('')}
-                        className="w-full bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg text-xs transition-all"
-                      >
-                        🗑️ حذف الصورة
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-
               <div>
                 <label className="text-sm text-gray-400 mb-1 block">اسم المنتج *</label>
                 <input type="text" value={form.name} onChange={(e) => setForm({...form, name: e.target.value})}
@@ -400,17 +304,6 @@ export default function Products({ currentUser }: ProductsProps) {
                 </div>
                 <button onClick={generateBarcode} className="bg-green-600 text-white px-3 py-2 rounded-lg self-end text-sm font-bold">توليد 🔧</button>
               </div>
-              
-              {/* Barcode Preview in Form */}
-              {form.barcode && (
-                <div className="bg-white rounded-lg p-3 text-center">
-                  <p className="text-gray-500 text-xs mb-1">معاينة الباركود</p>
-                  <div className="flex justify-center">
-                    <Barcode value={form.barcode} width={1.5} height={45} fontSize={10} margin={3} background="#fff" lineColor="#000" />
-                  </div>
-                </div>
-              )}
-
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-sm text-gray-400 mb-1 block">الكمية</label>
@@ -418,45 +311,19 @@ export default function Products({ currentUser }: ProductsProps) {
                     className="w-full bg-gray-800 text-white border border-gray-600 rounded-lg px-3 py-2" />
                 </div>
                 <div>
-                  <label className="text-sm text-gray-400 mb-1 block">الحد الأدنى للمخزون</label>
-                  <input type="number" value={form.minStock} onChange={(e) => setForm({...form, minStock: Number(e.target.value)})}
-                    className="w-full bg-gray-800 text-white border border-gray-600 rounded-lg px-3 py-2" />
+                   <label className="text-sm text-gray-400 mb-1 block">سعر البيع</label>
+                   <input type="number" value={form.sellPrice} onChange={(e) => setForm({...form, sellPrice: Number(e.target.value)})}
+                     className="w-full bg-gray-800 text-white border border-gray-600 rounded-lg px-3 py-2" />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-sm text-gray-400 mb-1 block">سعر الشراء</label>
-                  <input type="number" value={form.buyPrice} onChange={(e) => setForm({...form, buyPrice: Number(e.target.value)})}
-                    className="w-full bg-gray-800 text-white border border-gray-600 rounded-lg px-3 py-2" />
-                </div>
-                <div>
-                  <label className="text-sm text-gray-400 mb-1 block">سعر البيع</label>
-                  <input type="number" value={form.sellPrice} onChange={(e) => setForm({...form, sellPrice: Number(e.target.value)})}
-                    className="w-full bg-gray-800 text-white border border-gray-600 rounded-lg px-3 py-2" />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-sm text-gray-400 mb-1 block">التصنيف</label>
-                  <select value={form.category} onChange={(e) => setForm({...form, category: e.target.value})}
-                    className="w-full bg-gray-800 text-white border border-gray-600 rounded-lg px-3 py-2">
-                    {categories.filter(c => c !== 'الكل').map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-sm text-gray-400 mb-1 block">تاريخ الانتهاء</label>
-                  <input type="date" value={form.expiryDate} onChange={(e) => setForm({...form, expiryDate: e.target.value})}
-                    className="w-full bg-gray-800 text-white border border-gray-600 rounded-lg px-3 py-2" />
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <input type="text" value={newCat} onChange={(e) => setNewCat(e.target.value)} placeholder="تصنيف جديد..."
-                  className="flex-1 bg-gray-800 text-white border border-gray-600 rounded-lg px-3 py-2 text-sm" />
-                <button onClick={addCategory} className="bg-purple-600 text-white px-3 py-2 rounded-lg text-sm font-bold">إضافة تصنيف</button>
+              <div>
+                 <label className="text-sm text-gray-400 mb-1 block">التصنيف</label>
+                 <input type="text" value={form.category} onChange={(e) => setForm({...form, category: e.target.value})}
+                    className="w-full bg-gray-800 text-white border border-gray-600 rounded-lg px-3 py-2" placeholder="أدخل التصنيف..." />
               </div>
             </div>
-            <div className="flex gap-3 mt-4">
-              <button onClick={saveProduct} className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-xl font-bold">✅ حفظ</button>
+            <div className="flex gap-3 mt-6">
+              <button onClick={onSave} className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-xl font-bold shadow-lg shadow-green-900/20 transition-all">✅ حفظ المنتج</button>
               <button onClick={() => setShowAddModal(false)} className="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-2 rounded-xl font-bold">إلغاء</button>
             </div>
           </div>
