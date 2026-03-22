@@ -145,6 +145,21 @@ export async function saveSettings(settings: Record<string, any>) {
   return { error };
 }
 
+// Plural aliases for compatibility
+export const saveInvoices = async (invs: any[]) => { for(const i of invs) await saveInvoice(i); };
+export const saveProducts = async (prods: any[]) => { for(const p of prods) await saveProduct(p); };
+export const saveClients = async (clis: any[]) => { for(const c of clis) await saveClient(c); };
+export const saveExpenses = async (exps: any[]) => { for(const e of exps) await saveExpense(e); };
+
+// Returns
+export async function getReturns() {
+  const { data, error } = await supabase.from('returns').select('*').order('date', { ascending: false });
+  return data || [];
+}
+export async function saveReturns(rets: any[]) { 
+  for(const r of rets) await supabase.from('returns').upsert([r]);
+}
+
 // Auth functions
 export async function loginUser(username: string, password: string): Promise<User | null> {
   const { data, error } = await supabase
