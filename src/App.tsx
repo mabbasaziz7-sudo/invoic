@@ -15,6 +15,7 @@ import Settings from './pages/Settings';
 import Returns from './pages/Returns';
 import CustomerDisplay from './pages/CustomerDisplay';
 import Promotions from './pages/Promotions';
+import DailyClosing from './pages/DailyClosing';
 
 function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -49,6 +50,7 @@ function App() {
     if (perms.pos) setCurrentPage('pos');
     else if (perms.products) setCurrentPage('products');
     else if (perms.invoices) setCurrentPage('invoices');
+    else if (perms.dailyClosing) setCurrentPage('daily-closing');
     else setCurrentPage('pos');
   };
 
@@ -77,7 +79,8 @@ function App() {
       'returns': 'returns',
       'settings': 'settings',
       'customer-display': 'customerDisplay',
-      'active-promotions': 'statistics',
+      'promotions': 'promotions',
+      'daily-closing': 'dailyClosing',
     };
     const permKey = pagePermMap[page];
     if (permKey && !perms[permKey]) {
@@ -130,7 +133,8 @@ function App() {
       case 'debts': return <ClientDebts />;
       case 'settings': return <Settings />;
       case 'returns': return <Returns />;
-      case 'active-promotions': return <Promotions />;
+      case 'promotions': return <Promotions />;
+      case 'daily-closing': return <DailyClosing />;
       default: return <POS currentUser={currentUser} />;
     }
   };

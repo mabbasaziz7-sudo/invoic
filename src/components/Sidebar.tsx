@@ -13,9 +13,10 @@ interface SidebarProps {
 const menuItems: { id: PageType; label: string; shortLabel: string; emoji: string; color: string; permKey: keyof UserPermissions | null }[] = [
   { id: 'pos', label: 'نقطة البيع', shortLabel: 'البيع', emoji: '🛒', color: 'bg-green-600 hover:bg-green-700', permKey: 'pos' },
   { id: 'products', label: 'المنتجات', shortLabel: 'المنتجات', emoji: '📦', color: 'bg-sky-500 hover:bg-sky-600', permKey: 'products' },
-  { id: 'active-promotions', label: 'العروض والكوبونات', shortLabel: 'العروض', emoji: '🎟️', color: 'bg-pink-600 hover:bg-pink-700', permKey: 'statistics' },
+  { id: 'promotions', label: 'العروض والكوبونات', shortLabel: 'العروض', emoji: '🎟️', color: 'bg-pink-600 hover:bg-pink-700', permKey: 'promotions' },
+  { id: 'daily-closing', label: 'تقفيل اليوم', shortLabel: 'تقفيل', emoji: '🏁', color: 'bg-gray-600 hover:bg-gray-700', permKey: 'dailyClosing' },
   { id: 'users', label: 'المستخدمين', shortLabel: 'المستخدمين', emoji: '👥', color: 'bg-sky-500 hover:bg-sky-600', permKey: 'users' },
-  { id: 'inventory', label: 'إدارة المخزون', shortLabel: 'المخزون', emoji: '📋', color: 'bg-sky-500 hover:bg-sky-600', permKey: 'inventory' },
+  { id: 'inventory', label: 'المخزون والجرد', shortLabel: 'الجرد', emoji: '📊', color: 'bg-indigo-500 hover:bg-indigo-600', permKey: 'inventory' },
   { id: 'statistics', label: 'الإحصاءات', shortLabel: 'الإحصاءات', emoji: '📊', color: 'bg-sky-500 hover:bg-sky-600', permKey: 'statistics' },
   { id: 'debts', label: 'ديون العملاء', shortLabel: 'الديون', emoji: '💰', color: 'bg-sky-500 hover:bg-sky-600', permKey: 'debts' },
   { id: 'invoices', label: 'سجل الفواتير', shortLabel: 'الفواتير', emoji: '🧾', color: 'bg-sky-500 hover:bg-sky-600', permKey: 'invoices' },

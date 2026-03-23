@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { Product, CartItem, Invoice, Client, PaymentMethod, User, Coupon } from '../types';
-import { getProducts, saveProduct, getClients, saveClient, getInvoices, saveInvoice, getSettings, getCategories, saveCartDisplay, getUserPermissions, getCoupons } from '../store';
+import { Product, CartItem, Invoice, Client, PaymentMethod, User, Coupon, ProductOffer, Shift } from '../types';
+import { getProducts, saveProduct, getClients, saveClient, getInvoices, saveInvoice, getSettings, getCategories, saveCartDisplay, getUserPermissions, getCoupons, getProductOffers, logoutUser, getOpenShift, openShift, closeShift } from '../store';
 
 interface POSProps {
   currentUser?: User | null;
@@ -23,11 +23,18 @@ export default function POS({ currentUser }: POSProps) {
   const [couponCode, setCouponCode] = useState('');
   const [allCoupons, setAllCoupons] = useState<Coupon[]>([]);
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
+  const [activeOffers, setActiveOffers] = useState<ProductOffer[]>([]);
 
   // Payment method
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [cashAmount, setCashAmount] = useState(0);
   const [visaAmount, setVisaAmount] = useState(0);
+  // Shift management
+  const [currentShift, setCurrentShift] = useState<Shift | null>(null);
+  const [showShiftOpenModal, setShowShiftOpenModal] = useState(false);
+  const [showShiftCloseModal, setShowShiftCloseModal] = useState(false);
+  const [initialShiftCash, setInitialShiftCash] = useState(0);
+  const [actualShiftCash, setActualShiftCash] = useState(0);
 
   // Auto print toggle
   const [autoPrint, setAutoPrint] = useState(true);
@@ -75,16 +82,56 @@ export default function POS({ currentUser }: POSProps) {
   const settings = getSettings();
 
   useEffect(() => {
-    const load = async () => {
+    const loadData = async () => {
       setProducts(await getProducts());
       setCategories(await getCategories());
       setClients(await getClients());
       setAllCoupons(await getCoupons());
-      generateInvoiceId();
-      setTax(settings.defaultTax || 17);
+      setActiveOffers(await getProductOffers());
+      
+      if (currentUser?.id) {
+        const openShiftData = await getOpenShift(currentUser.id);
+        if (openShiftData) {
+          setCurrentShift(openShiftData);
+        } else {
+          setShowShiftOpenModal(true);
+        }
+      }
     };
-    load();
-  }, []);
+    loadData();
+    generateInvoiceId();
+    setTax(settings.defaultTax || 17);
+    
+    // Auto-fullscreen logic
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (document.fullscreenElement) document.exitFullscreen();
+      }
+    };
+    
+    // Re-enter fullscreen after print or focus loss
+    const recoverFullscreen = () => {
+       if (!document.fullscreenElement && currentShift) {
+          // Only re-enter if we have an open shift (to avoid annoying the user on login)
+          enterFullScreen();
+       }
+    };
+
+    window.addEventListener('keydown', handleEsc);
+    window.addEventListener('focus', recoverFullscreen);
+    return () => {
+      window.removeEventListener('keydown', handleEsc);
+      window.removeEventListener('focus', recoverFullscreen);
+    };
+  }, [currentUser, currentShift]);
+
+  const enterFullScreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(err => {
+        console.error(`Error attempting to enable full-screen mode: ${err.message}`);
+      });
+    }
+  };
 
   // Sync cart to customer display
   useEffect(() => {
@@ -176,11 +223,17 @@ export default function POS({ currentUser }: POSProps) {
   const subtotal = cart.reduce((sum, item) => {
     let price = item.product.sellPrice;
     
-    // 1. Check Bulk Pricing
-    if ((item.product.bulkQuantity || 0) > 0 && item.quantity >= (item.product.bulkQuantity || 0)) {
+    // 1. Check for Group Offers (Multi-product offers)
+    const activeOffer = activeOffers.find(off => off.productIds.includes(item.product.id!));
+    if (activeOffer) {
+       if (activeOffer.discountPercent > 0) price = price * (1 - activeOffer.discountPercent / 100);
+       else if (activeOffer.discountAmount > 0) price = Math.max(0, price - activeOffer.discountAmount);
+    }
+    // 2. Check Bulk Pricing
+    else if ((item.product.bulkQuantity || 0) > 0 && item.quantity >= (item.product.bulkQuantity || 0)) {
        price = item.product.bulkPrice || price;
     } 
-    // 2. Check Individual Discount (if no bulk price applied or lower)
+    // 3. Check Individual Discount
     else if ((item.product.discountPrice || 0) > 0) {
        price = Math.min(price, item.product.discountPrice || price);
     } else if ((item.product.discountPercent || 0) > 0) {
@@ -233,8 +286,37 @@ export default function POS({ currentUser }: POSProps) {
     }
   };
 
+  const openShiftHandler = async () => {
+    if (currentUser?.id) {
+       try {
+         await openShift(currentUser.id, initialShiftCash);
+         const s = await getOpenShift(currentUser.id);
+         setCurrentShift(s);
+         setShowShiftOpenModal(false);
+         enterFullScreen();
+       } catch (err) { alert('خطأ في فتح الوردية'); }
+    }
+  };
+
+  const closeShiftHandler = async () => {
+    if (currentShift?.id) {
+       try {
+         await closeShift(currentShift.id, actualShiftCash, currentShift.expectedCash, currentShift.totalSales);
+         alert('تم تقفيل الوردية بنجاح ✅');
+         setCurrentShift(null);
+         setShowShiftCloseModal(false);
+         setShowShiftOpenModal(true); // Open new shift immediately
+       } catch (err) { alert('خطأ في تقفيل الوردية'); }
+    }
+  };
+
   // Open payment confirmation modal
   const openPaymentModal = () => {
+    if (!currentShift) {
+      alert('يجب فتح وردية أولاً!');
+      setShowShiftOpenModal(true);
+      return;
+    }
     if (cart.length === 0) {
       alert('السلة فارغة!');
       return;
@@ -316,7 +398,17 @@ export default function POS({ currentUser }: POSProps) {
       setShowPaymentModal(false);
       generateInvoiceId();
       saveCartDisplay({ items: [], total: 0, storeName: settings.storeName });
+      
+      // Update shift expected totals
+      if (currentShift) {
+        const newShiftTotal = currentShift.totalSales + invoice.total;
+        const newExpected = currentShift.expectedCash + (invoice.paymentMethod === 'cash' ? (invoice.paid || 0) : (invoice.paymentMethod === 'mixed' ? (invoice.cashAmount || 0) : 0));
+        setCurrentShift({ ...currentShift, totalSales: newShiftTotal, expectedCash: newExpected });
+      }
+
       alert('تمت عملية البيع بنجاح! ✅');
+      // Re-enter full screen after print
+      setTimeout(enterFullScreen, 1000);
     } catch (err) {
       console.error('Sale confirmation failed:', err);
       alert('فشل إتمام العملية: ' + (err as any).message);
@@ -796,30 +888,6 @@ export default function POS({ currentUser }: POSProps) {
             <span className="text-xs text-gray-400">🖨️ طباعة الفاتورة تلقائياً عند الدفع</span>
           </label>
 
-          {/* Coupon Input */}
-          <div className="bg-[#0b1526] p-2 rounded-xl border border-gray-700 mb-3">
-             <div className="flex gap-1.5">
-                <input 
-                  type="text" 
-                  value={couponCode}
-                  onChange={e => setCouponCode(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && applyCoupon()}
-                  placeholder="🎟️ رمز الكوبون..."
-                  className="flex-1 bg-gray-900 text-white border border-gray-700 rounded-lg px-3 py-1.5 text-xs focus:border-sky-500 outline-none"
-                />
-                <button 
-                  onClick={applyCoupon}
-                  className="bg-sky-600 hover:bg-sky-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
-                >تطبيق</button>
-             </div>
-             {appliedCoupon && (
-                <div className="mt-2 flex justify-between items-center bg-sky-900/20 p-2 rounded-lg border border-sky-500/30">
-                   <span className="text-sky-400 text-[10px] font-bold">✅ تطبيق {appliedCoupon.code}</span>
-                   <button onClick={() => setAppliedCoupon(null)} className="text-red-400 text-[10px] hover:underline">إلغاء</button>
-                </div>
-             )}
-          </div>
-
           <div className="flex gap-1.5 lg:gap-2 mb-3">
             <button onClick={openPaymentModal} className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 lg:py-3 rounded-xl font-bold text-xs lg:text-base transition-all shadow-lg shadow-green-900/50">
               ✅ تأكيد ودفع
@@ -1012,44 +1080,68 @@ export default function POS({ currentUser }: POSProps) {
               </div>
             </div>
 
+            {/* Coupon Section */}
+            <div className="bg-sky-900/20 p-3 rounded-xl border border-sky-800/50 mb-4 animate-in fade-in zoom-in-95">
+               <div className="flex gap-2">
+                  <input 
+                    type="text" 
+                    value={couponCode}
+                    onChange={e => setCouponCode(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && applyCoupon()}
+                    placeholder="🎟️ هل لديك كوبون خصم؟"
+                    className="flex-1 bg-gray-900 text-white border border-sky-700/50 rounded-lg px-3 py-1.5 text-xs focus:ring-1 ring-sky-500 outline-none"
+                  />
+                  <button 
+                    onClick={applyCoupon}
+                    className="bg-sky-600 hover:bg-sky-700 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition-all"
+                  >تطبيق</button>
+               </div>
+               {appliedCoupon && (
+                  <div className="mt-2 flex justify-between items-center bg-green-900/40 p-2 rounded-lg border border-green-500/30">
+                     <span className="text-green-400 text-[10px] font-bold">✅ تم تطبيق كوبون ({appliedCoupon.code})</span>
+                     <button onClick={() => setAppliedCoupon(null)} className="text-red-400 text-[10px] hover:underline">إلغاء</button>
+                  </div>
+               )}
+            </div>
+
             {/* Payment Method Selection */}
             <div className="mb-4">
-              <p className="text-sm font-bold text-gray-300 mb-2">اختر طريقة الدفع:</p>
-              <div className="grid grid-cols-3 gap-2">
-                <button 
-                  onClick={() => setPaymentMethod('cash')}
-                  className={`py-3 rounded-xl font-bold text-sm transition-all border-2 ${
-                    paymentMethod === 'cash' 
-                      ? 'bg-green-600 text-white border-green-400 ring-2 ring-green-400/50 shadow-lg shadow-green-900/50' 
-                      : 'bg-gray-700 text-gray-400 border-gray-600 hover:border-green-500'
-                  }`}
-                >
-                  <span className="text-2xl block mb-1">💵</span>
-                  نقدي (كاش)
-                </button>
-                <button 
-                  onClick={() => setPaymentMethod('visa')}
-                  className={`py-3 rounded-xl font-bold text-sm transition-all border-2 ${
-                    paymentMethod === 'visa' 
-                      ? 'bg-blue-600 text-white border-blue-400 ring-2 ring-blue-400/50 shadow-lg shadow-blue-900/50' 
-                      : 'bg-gray-700 text-gray-400 border-gray-600 hover:border-blue-500'
-                  }`}
-                >
-                  <span className="text-2xl block mb-1">💳</span>
-                  بطاقة (فيزا)
-                </button>
-                <button 
-                  onClick={() => setPaymentMethod('mixed')}
-                  className={`py-3 rounded-xl font-bold text-sm transition-all border-2 ${
-                    paymentMethod === 'mixed' 
-                      ? 'bg-purple-600 text-white border-purple-400 ring-2 ring-purple-400/50 shadow-lg shadow-purple-900/50' 
-                      : 'bg-gray-700 text-gray-400 border-gray-600 hover:border-purple-500'
-                  }`}
-                >
-                  <span className="text-2xl block mb-1">💵💳</span>
-                  مختلط
-                </button>
-              </div>
+               <p className="text-sm font-bold text-gray-300 mb-2">اختر طريقة الدفع:</p>
+               <div className="grid grid-cols-3 gap-2">
+                  <button 
+                    onClick={() => setPaymentMethod('cash')}
+                    className={`py-3 rounded-xl font-bold text-sm transition-all border-2 ${
+                      paymentMethod === 'cash' 
+                        ? 'bg-green-600 text-white border-green-400 ring-2 ring-green-400/50 shadow-lg shadow-green-900/50' 
+                        : 'bg-gray-700 text-gray-400 border-gray-600 hover:border-green-500'
+                    }`}
+                  >
+                    <span className="text-2xl block mb-1">💵</span>
+                    نقدي (كاش)
+                  </button>
+                  <button 
+                    onClick={() => setPaymentMethod('visa')}
+                    className={`py-3 rounded-xl font-bold text-sm transition-all border-2 ${
+                      paymentMethod === 'visa' 
+                        ? 'bg-blue-600 text-white border-blue-400 ring-2 ring-blue-400/50 shadow-lg shadow-blue-900/50' 
+                        : 'bg-gray-700 text-gray-400 border-gray-600 hover:border-blue-500'
+                    }`}
+                  >
+                    <span className="text-2xl block mb-1">💳</span>
+                    بطاقة (فيزا)
+                  </button>
+                  <button 
+                    onClick={() => setPaymentMethod('mixed')}
+                    className={`py-3 rounded-xl font-bold text-sm transition-all border-2 ${
+                      paymentMethod === 'mixed' 
+                        ? 'bg-purple-600 text-white border-purple-400 ring-2 ring-purple-400/50 shadow-lg shadow-purple-900/50' 
+                        : 'bg-gray-700 text-gray-400 border-gray-600 hover:border-purple-500'
+                    }`}
+                  >
+                    <span className="text-2xl block mb-1">💵💳</span>
+                    مختلط
+                  </button>
+               </div>
             </div>
 
             {/* Payment Amount */}
@@ -1419,6 +1511,113 @@ export default function POS({ currentUser }: POSProps) {
           </div>
         </div>
       )}
+      {/* Shift Open Modal */}
+      {showShiftOpenModal && (
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-[100] p-4">
+          <div className="bg-[#1e293b] rounded-3xl p-8 w-full max-w-md shadow-2xl border border-sky-500/30 text-center animate-in fade-in zoom-in-95">
+            <span className="text-6xl mb-4 block">👋</span>
+            <h2 className="text-3xl font-black text-white mb-2">أهلاً بك بكاشير {currentUser?.fullName || 'نا'}</h2>
+            <p className="text-gray-400 mb-8">يرجى إدخال المبلغ الافتتاحي في الصندوق لبداية الوردية</p>
+            
+            <div className="space-y-6">
+              <div>
+                <label className="text-xs text-sky-400 font-bold mb-2 block uppercase tracking-widest text-right">المبلغ الافتتاحي (العهدة)</label>
+                <input 
+                  type="number" 
+                  autoFocus
+                  value={initialShiftCash}
+                  onChange={e => setInitialShiftCash(Number(e.target.value))}
+                  className="w-full bg-gray-900 border-2 border-gray-700 focus:border-sky-500 rounded-2xl px-6 py-4 text-2xl text-center text-white outline-none transition-all"
+                  placeholder="0.00"
+                />
+              </div>
+              
+              <button 
+                onClick={openShiftHandler}
+                className="w-full bg-sky-600 hover:bg-sky-700 text-white font-black py-4 rounded-2xl text-xl shadow-lg shadow-sky-900/40 transition-all active:scale-95"
+              >
+                🚀 فتح الوردية وتفعيل النظام
+              </button>
+              
+              <button 
+                onClick={logoutUser}
+                className="w-full bg-gray-800 hover:bg-gray-700 text-gray-400 font-bold py-3 rounded-2xl text-sm transition-all"
+              >
+                تسجيل الخروج
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Shift Close Modal */}
+      {showShiftCloseModal && currentShift && (
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-[110] p-4">
+          <div className="bg-[#1e293b] rounded-3xl p-8 w-full max-w-lg shadow-2xl border border-red-500/30 text-center relative overflow-hidden">
+             <div className="absolute top-0 left-0 w-full h-2 bg-red-500 opacity-50"></div>
+             <h2 className="text-3xl font-black text-white mb-6">🔒 تقفيل الوردية (X-Report)</h2>
+             
+             <div className="grid grid-cols-2 gap-4 mb-8">
+                <div className="bg-gray-900/50 p-4 rounded-2xl border border-gray-700">
+                   <p className="text-[10px] text-gray-500 mb-1 uppercase font-bold">المبيعات الإجمالية</p>
+                   <p className="text-2xl font-black text-sky-400">{currentShift.totalSales.toFixed(2)}</p>
+                </div>
+                <div className="bg-gray-900/50 p-4 rounded-2xl border border-gray-700">
+                   <p className="text-[10px] text-gray-500 mb-1 uppercase font-bold">المتوقع في الدرج</p>
+                   <p className="text-2xl font-black text-green-400">{(currentShift.expectedCash + currentShift.initialCash).toFixed(2)}</p>
+                </div>
+             </div>
+
+             <div className="space-y-6 text-right">
+                <div>
+                   <label className="text-xs text-red-400 font-bold mb-2 block uppercase">المبلغ الفعلي الموجود الآن (العد اليدوي)</label>
+                   <input 
+                     type="number" 
+                     autoFocus
+                     className="w-full bg-gray-900 border-2 border-red-500/20 focus:border-red-500 rounded-2xl px-6 py-4 text-3xl font-black text-center text-white outline-none transition-all"
+                     value={actualShiftCash}
+                     onChange={e => setActualShiftCash(Number(e.target.value))}
+                   />
+                </div>
+
+                <div className="bg-red-900/10 p-4 rounded-2xl border border-red-500/20 text-center">
+                   <p className="text-xs text-red-300 font-bold">
+                    العجز / الزيادة: 
+                    <span className="text-xl mx-2">
+                       {(actualShiftCash - (currentShift.expectedCash + currentShift.initialCash)).toFixed(2)}
+                    </span>
+                   </p>
+                </div>
+
+                <div className="flex gap-4">
+                   <button 
+                     onClick={closeShiftHandler}
+                     className="flex-1 bg-red-600 hover:bg-red-700 text-white font-black py-4 rounded-2xl text-xl shadow-lg transition-all"
+                   >
+                     ✅ تقفيل وتسجيل خروج
+                   </button>
+                   <button 
+                     onClick={() => setShowShiftCloseModal(false)}
+                     className="flex-1 bg-gray-800 text-gray-400 font-bold py-4 rounded-2xl"
+                   >
+                     إلغاء التقفيل
+                   </button>
+                </div>
+             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Button to trigger shift close */}
+      <div className="fixed bottom-4 left-4 z-40">
+         <button 
+           onClick={() => setShowShiftCloseModal(true)}
+           className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-2xl font-black shadow-xl shadow-red-900/40 flex items-center gap-2 transform transition-all hover:scale-105"
+         >
+           🔒 تقفيل الوردية
+         </button>
+      </div>
+
     </div>
   );
 }

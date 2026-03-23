@@ -147,20 +147,65 @@ CREATE TABLE IF NOT EXISTS coupons (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- سياسات الوصول للجداول الجديدة
-DO $$ BEGIN
-    ALTER TABLE damaged_items ENABLE ROW LEVEL SECURITY;
-    ALTER TABLE coupons ENABLE ROW LEVEL SECURITY;
-    CREATE POLICY "Public access" ON damaged_items FOR ALL USING (true) WITH CHECK (true);
-    CREATE POLICY "Public access" ON coupons FOR ALL USING (true) WITH CHECK (true);
-EXCEPTION WHEN OTHERS THEN NULL; END $$;
+-- تحديث جدول الكوبونات لإضافة اسم
+ALTER TABLE coupons ADD COLUMN IF NOT EXISTS name TEXT;
 
--- تحديث جدول المنتجات لدعم الخصومات والعروض
-ALTER TABLE products 
-ADD COLUMN IF NOT EXISTS discount_price DECIMAL DEFAULT 0,
-ADD COLUMN IF NOT EXISTS discount_percent DECIMAL DEFAULT 0,
-ADD COLUMN IF NOT EXISTS bulk_quantity INTEGER DEFAULT 0,
-ADD COLUMN IF NOT EXISTS bulk_price DECIMAL DEFAULT 0;
+-- جدول عروض المجموعات (Promo Groups)
+CREATE TABLE IF NOT EXISTS product_offers (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL,
+    discount_percent DECIMAL DEFAULT 0,
+    discount_amount DECIMAL DEFAULT 0,
+    active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ربط المنتجات بالعروض (Many-to-Many)
+CREATE TABLE IF NOT EXISTS product_offer_items (
+    id SERIAL PRIMARY KEY,
+    offer_id INTEGER REFERENCES product_offers(id) ON DELETE CASCADE,
+    product_id INTEGER REFERENCES products(id) ON DELETE CASCADE
+);
+
+-- جدول تقفيل اليوم (Daily Closing / Z-Report)
+CREATE TABLE IF NOT EXISTS daily_closings (
+    id SERIAL PRIMARY KEY,
+    date DATE UNIQUE DEFAULT NOW(),
+    total_sales DECIMAL DEFAULT 0,
+    cash_total DECIMAL DEFAULT 0,
+    visa_total DECIMAL DEFAULT 0,
+    expenses_total DECIMAL DEFAULT 0,
+    net_profit DECIMAL DEFAULT 0,
+    closed_by TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- جداول الورديات (Shifts)
+CREATE TABLE IF NOT EXISTS shifts (
+    id SERIAL PRIMARY KEY,
+    cashier_id INTEGER REFERENCES users(id),
+    opened_at TIMESTAMPTZ DEFAULT NOW(),
+    closed_at TIMESTAMPTZ,
+    initial_cash DECIMAL DEFAULT 0,
+    actual_cash DECIMAL DEFAULT 0,
+    expected_cash DECIMAL DEFAULT 0,
+    total_sales DECIMAL DEFAULT 0,
+    status TEXT DEFAULT 'open', -- open, closed
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- تحديث جدول عروض المجموعات لإضافة تاريخ انتهاء
+ALTER TABLE product_offers ADD COLUMN IF NOT EXISTS expiry_date DATE;
+
+-- تحديث جدول تقفيل اليوم
+ALTER TABLE daily_closings ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'open';
+ALTER TABLE daily_closings ADD COLUMN IF NOT EXISTS opened_at TIMESTAMPTZ DEFAULT NOW();
+
+-- سياسات الوصول
+DO $$ BEGIN
+    ALTER TABLE shifts ENABLE ROW LEVEL SECURITY;
+    CREATE POLICY "Public access shifts" ON shifts FOR ALL USING (true) WITH CHECK (true);
+EXCEPTION WHEN OTHERS THEN NULL; END $$;
 
 -- إضافة مدير افتراضي (اختياري)
 INSERT INTO users (username, password, role, full_name, active) 

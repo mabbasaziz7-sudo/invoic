@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Invoice, Expense } from '../types';
-import { getInvoices, getExpenses, saveExpense, getSettings } from '../store';
+import { getInvoices, getExpenses, saveExpense, getSettings, getCurrentUser } from '../store';
 
 export default function Statistics() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -110,11 +110,77 @@ export default function Statistics() {
     printWindow.print();
   };
 
+  const printFullReport = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const content = `
+      <html dir="rtl">
+        <head>
+          <title>تقرير النشاط التجاري - ${filterPeriod}</title>
+          <style>
+            body { font-family: 'Arial', sans-serif; padding: 40px; color: #333; }
+            .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 20px; margin-bottom: 30px; }
+            .stat-grid { display: grid; grid-cols: 2; gap: 20px; margin-bottom: 30px; }
+            .stat-box { border: 1px solid #ddd; padding: 15px; border-radius: 10px; text-align: center; }
+            .label { font-size: 14px; color: #666; margin-bottom: 5px; }
+            .value { font-size: 20px; font-weight: bold; color: #000; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th, td { border: 1px solid #ddd; padding: 10px; text-align: right; }
+            th { background: #f4f4f4; }
+            .footer { margin-top: 50px; text-align: center; font-size: 12px; color: #999; border-top: 1px solid #eee; padding-top: 20px; }
+          </style>
+        </head>
+        <body onload="window.print();">
+          <div class="header">
+            <h1>${settings.storeName}</h1>
+            <h2>تقرير الأداء والإحصائيات الشاملّة</h2>
+            <p>الفترة: ${filterPeriod === 'all' ? 'كامل الفترة' : filterPeriod} | تاريخ التقرير: ${new Date().toLocaleDateString()}</p>
+          </div>
+
+          <div style="display: flex; gap: 15px; margin-bottom: 30px;">
+             <div class="stat-box" style="flex: 1;">
+                <div class="label">إجمالي المبيعات</div>
+                <div class="value">${totalRevenue.toFixed(2)} ${settings.currency}</div>
+             </div>
+             <div class="stat-box" style="flex: 1;">
+                <div class="label">إجمالي المصروفات</div>
+                <div class="value">${totalExpenses.toFixed(2)} ${settings.currency}</div>
+             </div>
+             <div class="stat-box" style="flex: 1; background: #f0fff0;">
+                <div class="label">صافي الأرباح</div>
+                <div class="value" style="color: green;">${netProfit.toFixed(2)} ${settings.currency}</div>
+             </div>
+          </div>
+
+          <h3>🔝 المنتجات الأكثر مبيعاً</h3>
+          <table>
+             <thead><tr><th>#</th><th>المنتج</th><th>الكمية المباعة</th></tr></thead>
+             <tbody>
+               ${topProducts.map((p, i) => `<tr><td>${i+1}</td><td>${p.name}</td><td>${p.qty}</td></tr>`).join('')}
+             </tbody>
+          </table>
+
+          <div class="footer">
+            <p>نظام Bakhcha Pro POS - تم الاستخراج بواسطة: ${getCurrentUser()?.fullName || 'مسؤول'}</p>
+          </div>
+        </body>
+      </html>
+    `;
+    printWindow.document.write(content);
+    printWindow.document.close();
+  };
+
   const expenseCategories = ['فواتير (كهرباء، ماء، غاز)', 'إيجار', 'رواتب', 'صيانة', 'نقل وشحن', 'أخرى'];
 
   return (
     <div className="p-4 h-screen overflow-auto">
-      <h1 className="text-2xl font-bold text-center text-sky-400 mb-4">📊 لوحة تحكم الأرباح والإحصائيات</h1>
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-2xl font-bold text-sky-400">📊 لوحة تحكم الأرباح والإحصائيات</h1>
+        <button onClick={printFullReport} className="bg-sky-600 hover:bg-sky-700 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-lg transition-all">
+          🖨️ طباعة تقرير شامل
+        </button>
+      </div>
 
       {/* Filter Period */}
       <div className="flex gap-0 mb-4 bg-gray-800 rounded-xl overflow-hidden w-fit">

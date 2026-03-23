@@ -1,5 +1,6 @@
 import { Product, Client, Invoice, Expense, User, ReturnRecord, UserPermissions, defaultPermissions, DamagedItem, Coupon } from './types';
 import { supabase } from './lib/supabase';
+export { supabase };
 
 // --- مساعدات (Helpers) ---
 // (No global helpers currently needed)
@@ -340,6 +341,7 @@ export async function saveDamagedItem(item: DamagedItem) {
 // 11. الكوبونات والعروض (Coupons)
 const mapCouponToDB = (c: Partial<Coupon>) => ({
   code: c.code,
+  name: c.name,
   discount_percent: c.discountPercent,
   discount_amount: c.discountAmount,
   min_order_value: c.minOrderValue,
@@ -353,6 +355,7 @@ export async function getCoupons(): Promise<Coupon[]> {
   return data.map(d => ({
     id: d.id,
     code: d.code,
+    name: d.name || '',
     discountPercent: Number(d.discount_percent),
     discountAmount: Number(d.discount_amount),
     minOrderValue: Number(d.min_order_value),
@@ -362,13 +365,106 @@ export async function getCoupons(): Promise<Coupon[]> {
 }
 
 export async function saveCoupon(coupon: Partial<Coupon>) {
+  const dbData = mapCouponToDB(coupon);
   if (coupon.id) {
-    await supabase.from('coupons').update(mapCouponToDB(coupon)).eq('id', coupon.id);
+    const { error } = await supabase.from('coupons').update(dbData).eq('id', coupon.id);
+    if (error) throw error;
   } else {
-    await supabase.from('coupons').insert(mapCouponToDB(coupon));
+    const { error } = await supabase.from('coupons').insert(dbData);
+    if (error) throw error;
   }
 }
 
 export async function deleteCouponFromDB(id: number) {
   await supabase.from('coupons').delete().eq('id', id);
+}
+
+// 12. عروض المجموعات (Product Offers)
+import { ProductOffer, Shift } from './types';
+
+export async function getProductOffers(): Promise<ProductOffer[]> {
+  const { data, error } = await supabase.from('product_offers').select('*, items:product_offer_items(product_id)').eq('active', true);
+  if (error) return [];
+  return data.map(d => ({
+    id: d.id,
+    name: d.name,
+    discountPercent: Number(d.discount_percent),
+    discountAmount: Number(d.discount_amount),
+    productIds: d.items.map((i: any) => i.product_id),
+    active: d.active,
+    expiryDate: d.expiry_date || ''
+  }));
+}
+
+export async function saveProductOffer(offer: Partial<ProductOffer>) {
+  const { data, error } = await supabase
+    .from('product_offers')
+    .upsert({
+      id: offer.id,
+      name: offer.name,
+      discount_percent: offer.discountPercent,
+      discount_amount: offer.discountAmount,
+      active: offer.active,
+      expiry_date: offer.expiryDate || null
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  if (offer.productIds) {
+    await supabase.from('product_offer_items').delete().eq('offer_id', data.id);
+    const items = offer.productIds.map(pid => ({ offer_id: data.id, product_id: pid }));
+    await supabase.from('product_offer_items').insert(items);
+  }
+}
+
+export async function deleteProductOffer(id: number) {
+  await supabase.from('product_offers').delete().eq('id', id);
+}
+
+// 13. الورديات (Shifts)
+export async function getOpenShift(cashierId: number): Promise<Shift | null> {
+  const { data, error } = await supabase
+    .from('shifts')
+    .select('*')
+    .eq('cashier_id', cashierId)
+    .eq('status', 'open')
+    .maybeSingle();
+  if (error || !data) return null;
+  return {
+    id: data.id,
+    cashierId: data.cashier_id,
+    openedAt: data.opened_at,
+    closedAt: data.closed_at,
+    initialCash: Number(data.initial_cash),
+    actualCash: Number(data.actual_cash),
+    expectedCash: Number(data.expected_cash),
+    totalSales: Number(data.total_sales),
+    status: data.status
+  };
+}
+
+export async function openShift(cashierId: number, initialCash: number) {
+  const { error } = await supabase.from('shifts').insert({
+    cashier_id: cashierId,
+    initial_cash: initialCash,
+    status: 'open'
+  });
+  if (error) throw error;
+}
+
+export async function closeShift(shiftId: number, actualCash: number, expectedCash: number, totalSales: number) {
+  const { error } = await supabase.from('shifts').update({
+    actual_cash: actualCash,
+    expected_cash: expectedCash,
+    total_sales: totalSales,
+    status: 'closed',
+    closed_at: new Date().toISOString()
+  }).eq('id', shiftId);
+  if (error) throw error;
+}
+
+export async function updateDailyClosingStatus(id: number, status: string) {
+  await supabase.from('daily_closings').update({ status }).eq('id', id);
 }

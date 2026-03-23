@@ -104,6 +104,8 @@ export interface UserPermissions {
   giveDiscount: boolean;
   editPrices: boolean;
   customerDisplay: boolean;
+  promotions: boolean;
+  dailyClosing: boolean;
 }
 
 export interface User {
@@ -125,18 +127,21 @@ export const defaultPermissions: Record<string, UserPermissions> = {
     users: true, inventory: true, statistics: true, debts: true, invoices: true,
     returns: true, settings: true, viewBuyPrice: true, viewProfit: true,
     giveDiscount: true, editPrices: true, customerDisplay: true,
+    promotions: true, dailyClosing: true,
   },
   'كاشير': {
     pos: true, products: false, addProduct: false, editProduct: false, deleteProduct: false,
     users: false, inventory: false, statistics: false, debts: false, invoices: true,
     returns: false, settings: false, viewBuyPrice: false, viewProfit: false,
     giveDiscount: false, editPrices: false, customerDisplay: true,
+    promotions: false, dailyClosing: true,
   },
   'مشرف': {
     pos: true, products: true, addProduct: true, editProduct: true, deleteProduct: false,
     users: false, inventory: true, statistics: true, debts: true, invoices: true,
     returns: true, settings: false, viewBuyPrice: true, viewProfit: true,
     giveDiscount: true, editPrices: false, customerDisplay: true,
+    promotions: true, dailyClosing: true,
   },
 };
 
@@ -153,11 +158,47 @@ export interface DamagedItem {
 export interface Coupon {
   id?: number;
   code: string;
+  name?: string;
   discountPercent: number;
   discountAmount: number;
   minOrderValue: number;
-  expiryDate: string | null;
+  expiryDate?: string;
   active: boolean;
 }
 
-export type PageType = 'pos' | 'products' | 'users' | 'inventory' | 'statistics' | 'debts' | 'invoices' | 'settings' | 'returns' | 'customer-display' | 'active-promotions';
+export interface ProductOffer {
+  id?: number;
+  name: string;
+  discountPercent: number;
+  discountAmount: number;
+  productIds: number[];
+  active: boolean;
+  expiryDate?: string;
+}
+
+export interface DailyClosing {
+  id?: number;
+  date: string;
+  totalSales: number;
+  cashTotal: number;
+  visaTotal: number;
+  expensesTotal: number;
+  netProfit: number;
+  closedBy: string;
+  status?: string;
+  openedAt?: string;
+}
+
+export interface Shift {
+  id?: number;
+  cashierId: number;
+  openedAt: string;
+  closedAt?: string;
+  initialCash: number;
+  actualCash: number;
+  expectedCash: number;
+  totalSales: number;
+  status: 'open' | 'closed';
+}
+
+export type PageType = 'pos' | 'products' | 'users' | 'inventory' | 'statistics' | 'debts' | 'invoices' | 'settings' | 'returns' | 'customer-display' | 'promotions' | 'daily-closing';
