@@ -39,9 +39,11 @@ export async function getProducts(): Promise<Product[]> {
 export async function saveProduct(product: Partial<Product>) {
   const dbData = mapProductToDB(product);
   if (product.id) {
-    await supabase.from('products').update(dbData).eq('id', product.id);
+    const { error } = await supabase.from('products').update(dbData).eq('id', product.id);
+    if (error) console.error('Error updating product stock:', error, 'ID:', product.id);
   } else {
-    await supabase.from('products').insert(dbData);
+    const { error } = await supabase.from('products').insert(dbData);
+    if (error) console.error('Error inserting product:', error);
   }
 }
 
