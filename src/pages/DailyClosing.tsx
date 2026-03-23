@@ -54,15 +54,16 @@ export default function DailyClosing() {
     if (!confirm('هل أنت متأكد من تقفيل اليوم؟ سيتم حفظ نسخة مرجعية من إيرادات اليوم.')) return;
     setIsProcessing(true);
     try {
-      const { error } = await supabase.from('daily_closings').insert({
+      const { error } = await supabase.from('daily_closings').upsert({
         date: closing?.date,
         total_sales: closing?.totalSales,
         cash_total: closing?.cashTotal,
         visa_total: closing?.visaTotal,
         expenses_total: closing?.expensesTotal,
         net_profit: closing?.netProfit,
-        closed_by: closing?.closedBy
-      });
+        closed_by: closing?.closedBy,
+        status: 'closed'
+      }, { onConflict: 'date' });
       if (error) throw error;
       alert('تم تقفيل اليوم بنجاح ✅');
       printZReport();
