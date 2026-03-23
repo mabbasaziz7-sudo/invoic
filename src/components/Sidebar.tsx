@@ -14,7 +14,8 @@ const menuItems: { id: PageType; label: string; shortLabel: string; emoji: strin
   { id: 'pos', label: 'نقطة البيع', shortLabel: 'البيع', emoji: '🛒', color: 'bg-green-600 hover:bg-green-700', permKey: 'pos' },
   { id: 'products', label: 'المنتجات', shortLabel: 'المنتجات', emoji: '📦', color: 'bg-sky-500 hover:bg-sky-600', permKey: 'products' },
   { id: 'promotions', label: 'العروض والكوبونات', shortLabel: 'العروض', emoji: '🎟️', color: 'bg-pink-600 hover:bg-pink-700', permKey: 'promotions' },
-  { id: 'daily-closing', label: 'تقفيل اليوم', shortLabel: 'تقفيل', emoji: '🏁', color: 'bg-gray-600 hover:bg-gray-700', permKey: 'dailyClosing' },
+  // { id: 'daily-closing', label: 'تقفيل اليوم', shortLabel: 'تقفيل', emoji: '🏁', color: 'bg-gray-600 hover:bg-gray-700', permKey: 'dailyClosing' },
+
   { id: 'users', label: 'المستخدمين', shortLabel: 'المستخدمين', emoji: '👥', color: 'bg-sky-500 hover:bg-sky-600', permKey: 'users' },
   { id: 'inventory', label: 'المخزون والجرد', shortLabel: 'الجرد', emoji: '📊', color: 'bg-indigo-500 hover:bg-indigo-600', permKey: 'inventory' },
   { id: 'statistics', label: 'الإحصاءات', shortLabel: 'الإحصاءات', emoji: '📊', color: 'bg-sky-500 hover:bg-sky-600', permKey: 'statistics' },
@@ -24,7 +25,8 @@ const menuItems: { id: PageType; label: string; shortLabel: string; emoji: strin
   { id: 'returns', label: 'المرتجعات', shortLabel: 'المرتجعات', emoji: '🔄', color: 'bg-orange-500 hover:bg-orange-600', permKey: 'returns' },
   { id: 'customer-display', label: 'شاشة العميل', shortLabel: 'العميل', emoji: '📺', color: 'bg-purple-500 hover:bg-purple-600', permKey: 'customerDisplay' },
   { id: 'settings', label: 'إعدادات النظام', shortLabel: 'الإعدادات', emoji: '⚙️', color: 'bg-sky-500 hover:bg-sky-600', permKey: 'settings' },
-  { id: 'shift-monitor', label: 'مراقبة الكاشير', shortLabel: 'مراقبة', emoji: '🖥️', color: 'bg-indigo-600 hover:bg-indigo-700', permKey: 'shiftMonitor' },
+  // { id: 'shift-monitor', label: 'مراقبة الكاشير', shortLabel: 'مراقبة', emoji: '🖥️', color: 'bg-indigo-600 hover:bg-indigo-700', permKey: 'shiftMonitor' },
+
 ];
 
 export default function Sidebar({ currentPage, setPage, onCalculator, currentUser, onLogout }: SidebarProps) {

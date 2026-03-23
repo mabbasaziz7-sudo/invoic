@@ -96,6 +96,7 @@ export default function POS({ currentUser }: POSProps) {
       setActiveOffers(await getProductOffers());
       setAllInvoicesState(await getInvoices());
       
+      /* 
       if (currentUser?.id) {
         const openShiftData = await getOpenShift(currentUser.id);
         if (openShiftData) {
@@ -104,6 +105,7 @@ export default function POS({ currentUser }: POSProps) {
           setShowShiftOpenModal(true);
         }
       }
+      */
     };
     loadData();
     generateInvoiceId();
@@ -118,8 +120,7 @@ export default function POS({ currentUser }: POSProps) {
     
     // Re-enter fullscreen after print or focus loss
     const recoverFullscreen = () => {
-       if (!document.fullscreenElement && currentShift) {
-          // Only re-enter if we have an open shift (to avoid annoying the user on login)
+       if (!document.fullscreenElement) { // Removed currentShift check
           enterFullScreen();
        }
     };
@@ -410,11 +411,13 @@ export default function POS({ currentUser }: POSProps) {
 
   // Open payment confirmation modal
   const openPaymentModal = () => {
+    /*
     if (!currentShift) {
       alert('يجب فتح وردية أولاً!');
       setShowShiftOpenModal(true);
       return;
     }
+    */
     if (cart.length === 0) {
       alert('السلة فارغة!');
       return;
@@ -1625,46 +1628,13 @@ export default function POS({ currentUser }: POSProps) {
           </div>
         </div>
       )}
-      {/* Shift Open Modal */}
+      {/* 
       {showShiftOpenModal && (
-        <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-[100] p-4">
-          <div className="bg-[#1e293b] rounded-3xl p-8 w-full max-w-md shadow-2xl border border-sky-500/30 text-center animate-in fade-in zoom-in-95">
-            <span className="text-6xl mb-4 block">👋</span>
-            <h2 className="text-3xl font-black text-white mb-2">أهلاً بك بكاشير {currentUser?.fullName || 'نا'}</h2>
-            <p className="text-gray-400 mb-8">يرجى إدخال المبلغ الافتتاحي في الصندوق لبداية الوردية</p>
-            
-            <div className="space-y-6">
-              <div>
-                <label className="text-xs text-sky-400 font-bold mb-2 block uppercase tracking-widest text-right">المبلغ الافتتاحي (العهدة)</label>
-                <input 
-                  type="number" 
-                  autoFocus
-                  value={initialShiftCash}
-                  onChange={e => setInitialShiftCash(Number(e.target.value))}
-                  className="w-full bg-gray-900 border-2 border-gray-700 focus:border-sky-500 rounded-2xl px-6 py-4 text-2xl text-center text-white outline-none transition-all"
-                  placeholder="0.00"
-                />
-              </div>
-              
-              <button 
-                onClick={openShiftHandler}
-                className="w-full bg-sky-600 hover:bg-sky-700 text-white font-black py-4 rounded-2xl text-xl shadow-lg shadow-sky-900/40 transition-all active:scale-95"
-              >
-                🚀 فتح الوردية وتفعيل النظام
-              </button>
-              
-              <button 
-                onClick={logoutUser}
-                className="w-full bg-gray-800 hover:bg-gray-700 text-gray-400 font-bold py-3 rounded-2xl text-sm transition-all"
-              >
-                تسجيل الخروج
-              </button>
-            </div>
-          </div>
-        </div>
+        ...
       )}
+      */}
 
-      {/* Shift Close Modal */}
+      {/* Shift Close Modal - Disabled
       {showShiftCloseModal && currentShift && (
         <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-[110] p-4">
           <div className="bg-[#1e293b] rounded-3xl p-8 w-full max-w-lg shadow-2xl border border-red-500/30 text-center relative overflow-hidden">
@@ -1721,6 +1691,7 @@ export default function POS({ currentUser }: POSProps) {
           </div>
         </div>
       )}
+      */}
 
       {/* Cart Item Price Modal */}
       {showCartItemModal && editingCartItem !== null && (
@@ -1766,15 +1737,8 @@ export default function POS({ currentUser }: POSProps) {
         </div>
       )}
 
-      {/* Button to trigger shift close */}
-      <div className="fixed bottom-4 left-4 z-40">
-         <button 
-           onClick={() => setShowShiftCloseModal(true)}
-           className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-2xl font-black shadow-xl shadow-red-900/40 flex items-center gap-2 transform transition-all hover:scale-105"
-         >
-           🔒 تقفيل الوردية
-         </button>
-      </div>
+      {/* Button to trigger shift close - Removed */}
+
 
     </div>
   );
