@@ -52,6 +52,7 @@ export default function POS({ currentUser }: POSProps) {
   const [showAddClientModal, setShowAddClientModal] = useState(false);
   const [newClientName, setNewClientName] = useState('');
   const [newClientPhone, setNewClientPhone] = useState('');
+  const [newClientAddress, setNewClientAddress] = useState('');
 
   // Quick Add Product Modal
   const [showQuickAddProduct, setShowQuickAddProduct] = useState(false);
@@ -150,6 +151,17 @@ export default function POS({ currentUser }: POSProps) {
       storeName: settings.storeName,
     });
   }, [cart, discount, tax]);
+
+  // Auto-fill delivery info when client is selected
+  useEffect(() => {
+    if (selectedClient && selectedClient !== 'عميل نقدي') {
+      const client = clients.find(c => c.name === selectedClient);
+      if (client) {
+        setDeliveryPhone(client.phone || '');
+        setDeliveryAddress(client.address || '');
+      }
+    }
+  }, [selectedClient, clients]);
 
   // When payment method changes, adjust amounts
   useEffect(() => {
@@ -654,6 +666,7 @@ export default function POS({ currentUser }: POSProps) {
       id: clients.length > 0 ? Math.max(...clients.map(c => c.id)) + 1 : 1,
       name: newClientName.trim(),
       phone: newClientPhone.trim(),
+      address: newClientAddress.trim(),
       debt: 0,
     };
     await saveClient(newClient);
@@ -661,6 +674,7 @@ export default function POS({ currentUser }: POSProps) {
     setSelectedClient(newClient.name);
     setNewClientName('');
     setNewClientPhone('');
+    setNewClientAddress('');
     setShowAddClientModal(false);
   };
 
@@ -1308,6 +1322,14 @@ export default function POS({ currentUser }: POSProps) {
                     <span className={`text-lg font-bold ${remaining >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                       الباقي للعميل: {remaining.toFixed(2)} {settings.currency}
                     </span>
+                    {selectedClient !== 'عميل نقدي' && (
+                      <button 
+                        onClick={() => setPaid(0)}
+                        className="bg-red-900/40 text-red-400 border border-red-500/30 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-red-900/60 transition-all"
+                      >
+                         🔗 تحويل العملية لدين
+                      </button>
+                    )}
                   </div>
                 </div>
               )}
@@ -1368,6 +1390,16 @@ export default function POS({ currentUser }: POSProps) {
                   placeholder="0555-00-00-00"
                   className="w-full bg-gray-800 text-white border border-gray-600 rounded-lg px-3 py-2.5 text-sm focus:border-green-500 focus:outline-none"
                   dir="ltr"
+                />
+              </div>
+              <div>
+                <label className="text-sm text-gray-400 mb-1 block">العنوان</label>
+                <input
+                  type="text"
+                  value={newClientAddress}
+                  onChange={(e) => setNewClientAddress(e.target.value)}
+                  placeholder="أدخل عنوان العميل..."
+                  className="w-full bg-gray-800 text-white border border-gray-600 rounded-lg px-3 py-2.5 text-sm focus:border-green-500 focus:outline-none"
                 />
               </div>
               <div className="bg-gray-800/50 rounded-lg p-3 border border-gray-700">
