@@ -8,7 +8,7 @@ export { supabase };
 // 1. المنتجات (Products)
 const mapProductToDB = (p: Partial<Product>) => ({
   name: p.name,
-  barcode: p.barcode,
+  barcode: p.barcode && p.barcode.trim() !== "" ? p.barcode.trim() : null,
   quantity: p.quantity,
   buy_price: p.buyPrice,
   sell_price: p.sellPrice,
