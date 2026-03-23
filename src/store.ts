@@ -12,7 +12,7 @@ const mapProductToDB = (p: Partial<Product>) => ({
   buy_price: p.buyPrice,
   sell_price: p.sellPrice,
   category: p.category,
-  expiry_date: p.expiryDate,
+  expiry_date: p.expiryDate || null,
   min_stock: p.minStock,
   image: p.image,
 });
@@ -205,7 +205,7 @@ const mapUserToDB = (u: Partial<User>) => ({
   phone: u.phone,
   active: u.active,
   permissions: u.permissions,
-  last_login: u.lastLogin,
+  last_login: u.lastLogin || null,
 });
 
 const mapDBToUser = (d: any): User => ({
