@@ -112,25 +112,16 @@ export default function POS({ currentUser }: POSProps) {
     const currentSettings = getSettings();
     setTax(currentSettings.defaultTax ?? 17);
     
-    // Auto-fullscreen logic
+    // Fullscreen behavior override: only escape key
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         if (document.fullscreenElement) document.exitFullscreen();
       }
     };
-    
-    // Re-enter fullscreen after print or focus loss
-    const recoverFullscreen = () => {
-       if (!document.fullscreenElement) { // Removed currentShift check
-          enterFullScreen();
-       }
-    };
 
     window.addEventListener('keydown', handleEsc);
-    window.addEventListener('focus', recoverFullscreen);
     return () => {
       window.removeEventListener('keydown', handleEsc);
-      window.removeEventListener('focus', recoverFullscreen);
     };
   }, [currentUser, currentShift]);
 
@@ -844,27 +835,18 @@ export default function POS({ currentUser }: POSProps) {
       {/* Left side - Cart & Totals (Moved to Left in RTL by using order-2) */}
       <div className="w-full lg:w-1/2 bg-[#0f1a2e] flex flex-col border-l border-gray-700 order-2 lg:order-2 max-h-[50vh] lg:max-h-none">
         {/* Invoice Header */}
-        <div className="p-2 lg:p-3 border-b border-gray-700">
-          <div className="flex justify-between items-center mb-1 lg:mb-2">
-            <span className="text-[10px] lg:text-sm text-gray-400">التاريخ: {today}</span>
-            <span className="text-green-400 font-bold text-[10px] lg:text-sm">🟢 <span className="text-yellow-400">{invoiceId}</span></span>
-          </div>
-          <div className="text-sm text-gray-400 text-left mb-2">بيانات العميل</div>
-          <div className="flex gap-2">
-            <button 
-              onClick={() => setShowAddClientModal(true)}
-              className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm font-bold transition-all"
-              title="إضافة عميل جديد"
-            >
-              +
-            </button>
-            <select
-              value={selectedClient}
-              onChange={(e) => setSelectedClient(e.target.value)}
-              className="flex-1 bg-gray-800 text-white border border-gray-600 rounded px-2 py-1 text-sm"
-            >
-              {clients.map(c => <option key={c.id} value={c.name}>{c.name}{c.debt > 0 ? ` (دين: ${c.debt} دج)` : ''}</option>)}
-            </select>
+        <div className="p-1 lg:p-1.5 border-b border-gray-700 bg-gray-900/30">
+          <div className="flex justify-between items-center gap-2">
+            <div className="flex items-center gap-1.5 flex-1">
+              <button onClick={() => setShowAddClientModal(true)} className="bg-green-600 hover:bg-green-700 text-white w-6 h-6 rounded text-xs font-bold">+</button>
+              <select value={selectedClient} onChange={(e) => setSelectedClient(e.target.value)} className="flex-1 bg-gray-800 text-white border border-gray-700 rounded px-2 py-0.5 text-[10px] lg:text-xs">
+                {clients.map(c => <option key={c.id} value={c.name}>{c.name}{c.debt > 0 ? ` (${c.debt}دج)` : ''}</option>)}
+              </select>
+            </div>
+            <div className="flex flex-col items-end shrink-0">
+               <span className="text-[9px] lg:text-[10px] text-gray-500">{today}</span>
+               <span className="text-yellow-400 font-bold text-[10px] lg:text-xs">{invoiceId}</span>
+            </div>
           </div>
         </div>
 
@@ -925,20 +907,20 @@ export default function POS({ currentUser }: POSProps) {
         </div>
 
         {/* Totals & Payment */}
-        <div className="p-2 lg:p-3 border-t border-gray-700 space-y-1.5 lg:space-y-2">
+        <div className="p-1 lg:p-1.5 border-t border-gray-700 space-y-1">
           <div className="flex items-center gap-1 lg:gap-2">
-            <input type="text" readOnly value={subtotal.toFixed(2)} className="flex-1 bg-gray-800 text-white border border-gray-600 rounded px-2 py-0.5 lg:py-1 text-xs lg:text-sm text-left" />
-            <span className="text-xs lg:text-sm font-bold whitespace-nowrap">الإجمالي الفرعي:</span>
+            <input type="text" readOnly value={subtotal.toFixed(2)} className="flex-1 bg-gray-800 text-white border border-gray-600 rounded px-2 py-0.5 text-xs text-left" />
+            <span className="text-xs font-bold whitespace-nowrap">الإجمالي الفرعي:</span>
           </div>
           <div className="flex items-center gap-1 lg:gap-2">
-            <input type="number" value={tax} onChange={(e) => setTax(Number(e.target.value))} className="w-14 lg:w-20 bg-red-600 text-white border border-red-500 rounded px-1 lg:px-2 py-0.5 lg:py-1 text-xs lg:text-sm text-center font-bold" />
-            <span className="text-xs lg:text-sm">الضريبة:</span>
-            <input type="number" value={discount} onChange={(e) => setDiscount(Number(e.target.value))} disabled={perms ? !perms.giveDiscount : false} className={`w-14 lg:w-20 bg-gray-800 text-white border border-gray-600 rounded px-1 lg:px-2 py-0.5 lg:py-1 text-xs lg:text-sm text-center ${perms && !perms.giveDiscount ? 'opacity-50 cursor-not-allowed' : ''}`} />
-            <span className="text-xs lg:text-sm">الخصم:</span>
+            <input type="number" value={tax} onChange={(e) => setTax(Number(e.target.value))} className="w-12 lg:w-16 bg-red-600 text-white border border-red-500 rounded px-1 py-0.5 text-xs text-center font-bold" />
+            <span className="text-xs">الضريبة:</span>
+            <input type="number" value={discount} onChange={(e) => setDiscount(Number(e.target.value))} disabled={perms ? !perms.giveDiscount : false} className={`w-12 lg:w-16 bg-gray-800 text-white border border-gray-600 rounded px-1 py-0.5 text-xs text-center ${perms && !perms.giveDiscount ? 'opacity-50 cursor-not-allowed' : ''}`} />
+            <span className="text-xs">الخصم:</span>
           </div>
           <div className="flex items-center gap-1 lg:gap-2">
-            <input type="text" readOnly value={total.toFixed(2)} className="flex-1 bg-yellow-500/20 text-yellow-400 border-2 border-yellow-500 rounded px-2 py-1 lg:py-2 text-lg lg:text-xl font-black text-left" />
-            <span className="text-xs lg:text-sm font-bold whitespace-nowrap">الإجمالي:</span>
+            <input type="text" readOnly value={total.toFixed(2)} className="flex-1 bg-yellow-500/20 text-yellow-400 border-2 border-yellow-500 rounded px-2 py-0.5 text-base lg:text-lg font-black text-left" />
+            <span className="text-xs font-bold whitespace-nowrap">الإجمالي:</span>
           </div>
 
           {/* Payment Method Selection */}
@@ -1010,36 +992,33 @@ export default function POS({ currentUser }: POSProps) {
             <span className="text-xs text-gray-400">🖨️ طباعة الفاتورة تلقائياً عند الدفع</span>
           </label>
 
-          <div className="flex gap-1.5 lg:gap-2 mb-3">
-            <button onClick={openPaymentModal} className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 lg:py-3 rounded-xl font-bold text-xs lg:text-base transition-all shadow-lg shadow-green-900/50">
+          <div className="flex gap-1.5 mb-1.5">
+            <button onClick={openPaymentModal} className="flex-1 bg-green-600 hover:bg-green-700 text-white py-1.5 lg:py-2 rounded-xl font-bold text-xs lg:text-sm transition-all shadow-lg shadow-green-900/50">
               ✅ تأكيد ودفع
             </button>
-            <button onClick={cancelSale} className="flex-1 bg-orange-600 hover:bg-orange-700 text-white py-2 lg:py-3 rounded-xl font-bold text-xs lg:text-base transition-all text-center">
+            <button onClick={cancelSale} className="flex-1 bg-orange-600 hover:bg-orange-700 text-white py-1.5 lg:py-2 rounded-xl font-bold text-xs lg:text-sm transition-all text-center">
               ❌ إلغاء
             </button>
           </div>
 
-          <div className="flex gap-1.5 lg:gap-2">
-            <button onClick={() => holdInvoice(false)} className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white py-1 lg:py-1.5 rounded-lg font-bold text-[9px] lg:text-xs transition-all" title="تعليق الفاتورة">
+          <div className="flex gap-1 mb-1">
+            <button onClick={() => holdInvoice(false)} className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white py-1 rounded-lg font-bold text-[9px] lg:text-[11px] transition-all" title="تعليق الفاتورة">
               ⏸️ تعليق
             </button>
-            <button onClick={() => setShowDeliveryModal(true)} className="flex-1 bg-cyan-600 hover:bg-cyan-700 text-white py-1 lg:py-1.5 rounded-lg font-bold text-[9px] lg:text-xs transition-all" title="توصيل">
+            <button onClick={() => setShowDeliveryModal(true)} className="flex-1 bg-cyan-600 hover:bg-cyan-700 text-white py-1 rounded-lg font-bold text-[9px] lg:text-[11px] transition-all" title="توصيل">
               🚚 توصيل
             </button>
-            <button onClick={() => setShowHeldInvoices(true)} className="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-1 lg:py-1.5 rounded-lg font-bold text-[9px] lg:text-xs transition-all relative">
+            <button onClick={() => setShowHeldInvoices(true)} className="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-1 rounded-lg font-bold text-[9px] lg:text-[11px] transition-all relative">
               📋 معلقة
               {heldInvoices.length > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] w-3.5 h-3.5 rounded-full flex items-center justify-center">{heldInvoices.length}</span>
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] w-3 h-3 rounded-full flex items-center justify-center">{heldInvoices.length}</span>
               )}
             </button>
-          </div>
-
-          <div className="flex gap-1.5 lg:gap-2">
-            <button onClick={printLastInvoice} className="flex-1 bg-sky-600 hover:bg-sky-700 text-white py-1 lg:py-1.5 rounded-lg font-bold text-[9px] lg:text-xs transition-all">
-              🖨️ طباعة سابقة
+            <button onClick={printLastInvoice} className="flex-1 bg-sky-600 hover:bg-sky-700 text-white py-1 rounded-lg font-bold text-[9px] lg:text-[11px] transition-all">
+              🖨️ طباعة
             </button>
-            <button onClick={openCustomerDisplay} className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-1 lg:py-1.5 rounded-lg font-bold text-[9px] lg:text-xs transition-all">
-              📺 شاشة العميل
+            <button onClick={openCustomerDisplay} className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-1 rounded-lg font-bold text-[9px] lg:text-[11px] transition-all">
+              📺 شاشة
             </button>
           </div>
         </div>
