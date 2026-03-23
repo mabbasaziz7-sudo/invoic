@@ -164,6 +164,11 @@ export function logoutUser() {
   localStorage.removeItem('bakhcha_current_user');
 }
 
+export function getUserPermissions(user: User): UserPermissions {
+  if (user.permissions) return user.permissions;
+  return defaultPermissions[user.role as keyof typeof defaultPermissions] || defaultPermissions['كاشير'];
+}
+
 
 // Cart display (للشاشة الثانية)
 export function saveCartDisplay(displayData: any) {
