@@ -20,7 +20,7 @@ export default function Login({ onLogin }: LoginProps) {
     return () => clearInterval(timer);
   }, []);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username.trim() || !password.trim()) {
       setError('يرجى إدخال اسم المستخدم وكلمة المرور');
@@ -28,15 +28,19 @@ export default function Login({ onLogin }: LoginProps) {
     }
     setLoading(true);
     setError('');
-    setTimeout(() => {
-      const user = loginUser(username.trim(), password);
+    
+    try {
+      const user = await loginUser(username.trim(), password);
       if (user) {
         onLogin(user);
       } else {
         setError('اسم المستخدم أو كلمة المرور غير صحيحة');
         setLoading(false);
       }
-    }, 800);
+    } catch (err) {
+      setError('حدث خطأ أثناء تسجيل الدخول');
+      setLoading(false);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {

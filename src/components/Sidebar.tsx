@@ -120,13 +120,13 @@ export default function Sidebar({ currentPage, setPage, onCalculator, currentUse
     onLogout();
   };
 
-  const handlePriceSearch = (query: string) => {
+  const handlePriceSearch = async (query: string) => {
     setPriceSearchQuery(query);
     if (query.trim().length === 0) {
       setPriceSearchResults([]);
       return;
     }
-    const products = getProducts();
+    const products = await getProducts();
     const results = products.filter((p: Product) => 
       p.name.toLowerCase().includes(query.toLowerCase()) || 
       (p.barcode && p.barcode.includes(query))
