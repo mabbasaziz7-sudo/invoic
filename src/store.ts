@@ -465,6 +465,12 @@ export async function closeShift(shiftId: number, actualCash: number, expectedCa
   if (error) throw error;
 }
 
+export async function getActiveShifts() {
+  const { data, error } = await supabase.from('shifts').select('*, users(full_name)').eq('status', 'open');
+  if (error) throw error;
+  return data;
+}
+
 export async function updateDailyClosingStatus(id: number, status: string) {
   await supabase.from('daily_closings').update({ status }).eq('id', id);
 }

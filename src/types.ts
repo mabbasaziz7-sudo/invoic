@@ -18,6 +18,7 @@ export interface Product {
 export interface CartItem {
   product: Product;
   quantity: number;
+  overridePrice?: number;
 }
 
 export interface Client {
@@ -54,6 +55,7 @@ export interface Invoice {
   paymentMethod: PaymentMethod;
   cashAmount?: number;
   visaAmount?: number;
+  shiftId?: number;
 }
 
 export interface ReturnItem {
@@ -106,6 +108,7 @@ export interface UserPermissions {
   customerDisplay: boolean;
   promotions: boolean;
   dailyClosing: boolean;
+  shiftMonitor: boolean;
 }
 
 export interface User {
@@ -127,21 +130,21 @@ export const defaultPermissions: Record<string, UserPermissions> = {
     users: true, inventory: true, statistics: true, debts: true, invoices: true,
     returns: true, settings: true, viewBuyPrice: true, viewProfit: true,
     giveDiscount: true, editPrices: true, customerDisplay: true,
-    promotions: true, dailyClosing: true,
+    promotions: true, dailyClosing: true, shiftMonitor: true,
   },
   'كاشير': {
     pos: true, products: false, addProduct: false, editProduct: false, deleteProduct: false,
     users: false, inventory: false, statistics: false, debts: false, invoices: true,
     returns: false, settings: false, viewBuyPrice: false, viewProfit: false,
     giveDiscount: false, editPrices: false, customerDisplay: true,
-    promotions: false, dailyClosing: true,
+    promotions: false, dailyClosing: true, shiftMonitor: false,
   },
   'مشرف': {
     pos: true, products: true, addProduct: true, editProduct: true, deleteProduct: false,
     users: false, inventory: true, statistics: true, debts: true, invoices: true,
     returns: true, settings: false, viewBuyPrice: true, viewProfit: true,
-    giveDiscount: true, editPrices: false, customerDisplay: true,
-    promotions: true, dailyClosing: true,
+    giveDiscount: true, editPrices: true, customerDisplay: true,
+    promotions: true, dailyClosing: true, shiftMonitor: true,
   },
 };
 
@@ -201,4 +204,4 @@ export interface Shift {
   status: 'open' | 'closed';
 }
 
-export type PageType = 'pos' | 'products' | 'users' | 'inventory' | 'statistics' | 'debts' | 'invoices' | 'settings' | 'returns' | 'customer-display' | 'promotions' | 'daily-closing';
+export type PageType = 'pos' | 'products' | 'invoices' | 'statistics' | 'settings' | 'users' | 'inventory' | 'promotions' | 'daily-closing' | 'debts' | 'returns' | 'customer-display' | 'shift-monitor' | 'profit';

@@ -66,6 +66,7 @@ CREATE TABLE IF NOT EXISTS returns (
     refund_amount DECIMAL,
     client TEXT,
     cashier TEXT,
+    shift_id INTEGER,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -171,12 +172,14 @@ CREATE TABLE IF NOT EXISTS product_offer_items (
 CREATE TABLE IF NOT EXISTS daily_closings (
     id SERIAL PRIMARY KEY,
     date DATE UNIQUE DEFAULT NOW(),
+    opened_at TIMESTAMPTZ DEFAULT NOW(),
     total_sales DECIMAL DEFAULT 0,
     cash_total DECIMAL DEFAULT 0,
     visa_total DECIMAL DEFAULT 0,
     expenses_total DECIMAL DEFAULT 0,
     net_profit DECIMAL DEFAULT 0,
     closed_by TEXT,
+    status TEXT DEFAULT 'open',
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Invoice, Expense } from '../types';
-import { getInvoices, getExpenses, saveExpense, getSettings, getCurrentUser } from '../store';
+import { Invoice, Expense, User } from '../types';
+import { getInvoices, getExpenses, saveExpense, getSettings, getCurrentUser, getUserPermissions } from '../store';
 
 export default function Statistics() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -11,6 +11,9 @@ export default function Statistics() {
   const [showExpenseLog, setShowExpenseLog] = useState(false);
   const [expenseForm, setExpenseForm] = useState({ date: '', category: 'فواتير (كهرباء، ماء، غاز)', description: '', amount: 0 });
   const settings = getSettings();
+  const currentUser = getCurrentUser();
+  const perms = currentUser ? getUserPermissions(currentUser) : null;
+  const showProfit = perms?.viewProfit !== false;
   // products available
 
   useEffect(() => {
@@ -143,6 +146,7 @@ export default function Statistics() {
                 <div class="label">إجمالي المبيعات</div>
                 <div class="value">${totalRevenue.toFixed(2)} ${settings.currency}</div>
              </div>
+             ${showProfit ? `
              <div class="stat-box" style="flex: 1;">
                 <div class="label">إجمالي المصروفات</div>
                 <div class="value">${totalExpenses.toFixed(2)} ${settings.currency}</div>
@@ -151,6 +155,7 @@ export default function Statistics() {
                 <div class="label">صافي الأرباح</div>
                 <div class="value" style="color: green;">${netProfit.toFixed(2)} ${settings.currency}</div>
              </div>
+             ` : ''}
           </div>
 
           <h3>🔝 المنتجات الأكثر مبيعاً</h3>
@@ -199,23 +204,27 @@ export default function Statistics() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-4 gap-3 mb-6">
+      <div className={`grid ${showProfit ? 'grid-cols-4' : 'grid-cols-1'} gap-3 mb-6`}>
         <div className="bg-gradient-to-b from-green-700 to-green-900 rounded-xl p-4 text-center border border-green-500">
           <p className="text-green-200 text-xs mb-1">الإيرادات (المبيعات)</p>
           <p className="text-white text-xl font-black">{totalRevenue.toLocaleString()} {settings.currency}</p>
         </div>
-        <div className="bg-gradient-to-b from-blue-700 to-blue-900 rounded-xl p-4 text-center border border-blue-500">
-          <p className="text-blue-200 text-xs mb-1">الربح العام (السلعي)</p>
-          <p className="text-white text-xl font-black">{totalProfit.toLocaleString()} {settings.currency}</p>
-        </div>
-        <div className="bg-gradient-to-b from-red-700 to-red-900 rounded-xl p-4 text-center border border-red-500">
-          <p className="text-red-200 text-xs mb-1">المصروفات (الخسائر)</p>
-          <p className="text-white text-xl font-black">{totalExpenses.toLocaleString()} {settings.currency}</p>
-        </div>
-        <div className="bg-gradient-to-b from-yellow-700 to-yellow-900 rounded-xl p-4 text-center border border-yellow-500">
-          <p className="text-yellow-200 text-xs mb-1">الربح الصافي النهائي</p>
-          <p className="text-white text-xl font-black">{netProfit.toLocaleString()} {settings.currency}</p>
-        </div>
+        {showProfit && (
+          <>
+            <div className="bg-gradient-to-b from-blue-700 to-blue-900 rounded-xl p-4 text-center border border-blue-500">
+              <p className="text-blue-200 text-xs mb-1">الربح العام (السلعي)</p>
+              <p className="text-white text-xl font-black">{totalProfit.toLocaleString()} {settings.currency}</p>
+            </div>
+            <div className="bg-gradient-to-b from-red-700 to-red-900 rounded-xl p-4 text-center border border-red-500">
+              <p className="text-red-200 text-xs mb-1">المصروفات (الخسائر)</p>
+              <p className="text-white text-xl font-black">{totalExpenses.toLocaleString()} {settings.currency}</p>
+            </div>
+            <div className="bg-gradient-to-b from-yellow-700 to-yellow-900 rounded-xl p-4 text-center border border-yellow-500">
+              <p className="text-yellow-200 text-xs mb-1">الربح الصافي النهائي</p>
+              <p className="text-white text-xl font-black">{netProfit.toLocaleString()} {settings.currency}</p>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-4 mb-6">

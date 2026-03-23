@@ -20,9 +20,11 @@ const menuItems: { id: PageType; label: string; shortLabel: string; emoji: strin
   { id: 'statistics', label: 'الإحصاءات', shortLabel: 'الإحصاءات', emoji: '📊', color: 'bg-sky-500 hover:bg-sky-600', permKey: 'statistics' },
   { id: 'debts', label: 'ديون العملاء', shortLabel: 'الديون', emoji: '💰', color: 'bg-sky-500 hover:bg-sky-600', permKey: 'debts' },
   { id: 'invoices', label: 'سجل الفواتير', shortLabel: 'الفواتير', emoji: '🧾', color: 'bg-sky-500 hover:bg-sky-600', permKey: 'invoices' },
+  { id: 'profit', label: 'الأرباح', shortLabel: 'الأرباح', emoji: '📈', color: 'bg-green-700 hover:bg-green-800', permKey: 'viewProfit' },
   { id: 'returns', label: 'المرتجعات', shortLabel: 'المرتجعات', emoji: '🔄', color: 'bg-orange-500 hover:bg-orange-600', permKey: 'returns' },
   { id: 'customer-display', label: 'شاشة العميل', shortLabel: 'العميل', emoji: '📺', color: 'bg-purple-500 hover:bg-purple-600', permKey: 'customerDisplay' },
   { id: 'settings', label: 'إعدادات النظام', shortLabel: 'الإعدادات', emoji: '⚙️', color: 'bg-sky-500 hover:bg-sky-600', permKey: 'settings' },
+  { id: 'shift-monitor', label: 'مراقبة الكاشير', shortLabel: 'مراقبة', emoji: '🖥️', color: 'bg-indigo-600 hover:bg-indigo-700', permKey: 'shiftMonitor' },
 ];
 
 export default function Sidebar({ currentPage, setPage, onCalculator, currentUser, onLogout }: SidebarProps) {

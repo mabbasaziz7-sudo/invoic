@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Invoice, PaymentMethod } from '../types';
-import { getInvoices, getSettings, getProducts, saveProduct, getClients, saveClient, deleteInvoiceFromDB } from '../store';
+import { Invoice, PaymentMethod, User } from '../types';
+import { getInvoices, getSettings, getProducts, saveProduct, getClients, saveClient, deleteInvoiceFromDB, getCurrentUser, getUserPermissions } from '../store';
 
 export default function InvoiceLog() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -9,6 +9,9 @@ export default function InvoiceLog() {
   const [paymentFilter, setPaymentFilter] = useState<'all' | PaymentMethod>('all');
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const settings = getSettings();
+  const currentUser = getCurrentUser();
+  const perms = currentUser ? getUserPermissions(currentUser) : null;
+  const showProfit = perms?.viewProfit !== false;
 
   useEffect(() => {
     const load = async () => {
@@ -214,7 +217,7 @@ export default function InvoiceLog() {
         return `<tr><td>${i.id}</td><td>${i.date}</td><td>${i.client}</td><td>${i.total.toFixed(2)}</td><td>${i.profit.toFixed(2)}</td><td><span class="badge ${pmClass}">${pmLabel}</span></td><td>${i.cashier}</td></tr>`;
       }).join('')}
       </table>
-      <p class="footer">المجموع العام للمبيعات: ${totalSales.toFixed(2)} ${settings.currency} | إجمالي الأرباح: ${totalProfits.toFixed(2)} ${settings.currency}</p>
+      <p class="footer">المجموع العام للمبيعات: ${totalSales.toFixed(2)} ${settings.currency} ${showProfit ? `| إجمالي الأرباح: ${totalProfits.toFixed(2)} ${settings.currency}` : ''}</p>
       <p class="footer">💵 إجمالي النقدي: ${totalCash.toFixed(2)} ${settings.currency} | 💳 إجمالي البطاقات: ${totalVisa.toFixed(2)} ${settings.currency}</p>
       </body></html>
     `);
@@ -251,10 +254,12 @@ export default function InvoiceLog() {
           <span className="text-green-300 text-sm">مجموع المبيعات: </span>
           <span className="text-white font-bold">{totalSales.toFixed(2)} {settings.currency}</span>
         </div>
-        <div className="bg-blue-800/50 rounded-xl px-4 py-2 border border-blue-600">
-          <span className="text-blue-300 text-sm">مجموع الأرباح: </span>
-          <span className="text-white font-bold">{totalProfits.toFixed(2)} {settings.currency}</span>
-        </div>
+        {showProfit && (
+          <div className="bg-blue-800/50 rounded-xl px-4 py-2 border border-blue-600">
+            <span className="text-blue-300 text-sm">مجموع الأرباح: </span>
+            <span className="text-white font-bold">{totalProfits.toFixed(2)} {settings.currency}</span>
+          </div>
+        )}
         <div className="bg-purple-800/50 rounded-xl px-4 py-2 border border-purple-600">
           <span className="text-purple-300 text-sm">عدد الفواتير: </span>
           <span className="text-white font-bold">{filtered.length}</span>
@@ -297,7 +302,7 @@ export default function InvoiceLog() {
               <th className="p-2">إجراء</th>
               <th className="p-2">الكاشير</th>
               <th className="p-2">طريقة الدفع</th>
-              <th className="p-2">الربح</th>
+              {showProfit && <th className="p-2">الربح</th>}
               <th className="p-2">الإجمالي</th>
               <th className="p-2">العميل</th>
               <th className="p-2">التاريخ</th>
@@ -319,9 +324,10 @@ export default function InvoiceLog() {
                   <span className={`px-2 py-0.5 rounded-lg text-xs font-bold border ${getPaymentMethodColor(inv.paymentMethod)}`}>
                     {getPaymentMethodLabel(inv.paymentMethod)}
                   </span>
-                </td>
-                <td className="p-2 text-center text-green-400 font-bold">{inv.profit.toFixed(2)}</td>
-                <td className="p-2 text-center font-bold">{inv.total.toFixed(2)}</td>
+                  </td>
+                  {showProfit && <td className="p-2 text-center text-green-400 font-bold">{inv.profit.toFixed(2)}</td>}
+                  <td className="p-2 text-center font-bold">
+{inv.total.toFixed(2)}</td>
                 <td className="p-2 text-center">{inv.client}</td>
                 <td className="p-2 text-center">{inv.date}</td>
                 <td className="p-2 text-center text-yellow-400">{inv.id}</td>
@@ -351,10 +357,12 @@ export default function InvoiceLog() {
               <p className="text-gray-400">الإجمالي</p>
               <p className="text-yellow-400 font-bold">{selectedInvoice.total.toFixed(2)} {settings.currency}</p>
             </div>
-            <div className="bg-gray-800 rounded-lg p-2 text-center text-sm">
-              <p className="text-gray-400">الربح</p>
-              <p className="text-green-400 font-bold">{selectedInvoice.profit.toFixed(2)} {settings.currency}</p>
-            </div>
+            {showProfit && (
+              <div className="bg-gray-800 rounded-lg p-2 text-center text-sm">
+                <p className="text-gray-400">الربح</p>
+                <p className="text-green-400 font-bold">{selectedInvoice.profit.toFixed(2)} {settings.currency}</p>
+              </div>
+            )}
             <div className="bg-gray-800 rounded-lg p-2 text-center text-sm">
               <p className="text-gray-400">طريقة الدفع</p>
               <p className={`font-bold ${

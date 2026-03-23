@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { DailyClosing as DailyClosingType, Invoice, ReturnRecord } from '../types';
-import { getInvoices, getExpenses, getReturns, getSettings, getCurrentUser, supabase } from '../store';
+import { DailyClosing as DailyClosingType, Invoice, ReturnRecord, User } from '../types';
+import { getInvoices, getExpenses, getReturns, getSettings, getCurrentUser, supabase, getUserPermissions } from '../store';
 
 export default function DailyClosing() {
   const [closing, setClosing] = useState<Partial<DailyClosingType> | null>(null);
@@ -9,6 +9,8 @@ export default function DailyClosing() {
   const [isProcessing, setIsProcessing] = useState(false);
   const settings = getSettings();
   const currentUser = getCurrentUser();
+  const perms = currentUser ? getUserPermissions(currentUser) : null;
+  const showProfit = perms?.viewProfit !== false;
 
   useEffect(() => {
     calculateSummary();
@@ -99,7 +101,7 @@ export default function DailyClosing() {
           <div class="row"><span>إجمالي المصروفات:</span> <span>${closing?.expensesTotal?.toFixed(2)} ${settings.currency}</span></div>
           <div class="row"><span>عدد الفواتير:</span> <span>${invoices.length}</span></div>
           <div class="row"><span>عدد المرتجعات:</span> <span>${returns.length}</span></div>
-          <div class="total"><span>صافي الربح التقديري:</span> <span>${closing?.netProfit?.toFixed(2)} ${settings.currency}</span></div>
+          ${showProfit ? `<div class="total"><span>صافي الربح التقديري:</span> <span>${closing?.netProfit?.toFixed(2)} ${settings.currency}</span></div>` : ''}
           <div class="footer">
             <p>تم التقفيل بواسطة: ${closing?.closedBy}</p>
             <p>تم الطباعة في: ${new Date().toLocaleString()}</p>
@@ -134,10 +136,12 @@ export default function DailyClosing() {
            <p className="text-gray-400 text-xs mb-1">الفيزا</p>
            <p className="text-2xl font-black text-blue-400">{closing?.visaTotal?.toFixed(2)} {settings.currency}</p>
         </div>
-        <div className="bg-[#1e293b] p-6 rounded-2xl border border-gray-700 shadow-xl">
-           <p className="text-gray-400 text-xs mb-1">صافي الربح</p>
-           <p className="text-2xl font-black text-purple-400">{closing?.netProfit?.toFixed(2)} {settings.currency}</p>
-        </div>
+        {showProfit && (
+          <div className="bg-[#1e293b] p-6 rounded-2xl border border-gray-700 shadow-xl">
+            <p className="text-gray-400 text-xs mb-1">صافي الربح</p>
+            <p className="text-2xl font-black text-purple-400">{closing?.netProfit?.toFixed(2)} {settings.currency}</p>
+          </div>
+        )}
       </div>
 
       <div className="bg-[#1e293b] rounded-2xl border border-gray-700 overflow-hidden shadow-xl">

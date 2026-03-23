@@ -36,6 +36,11 @@ export default function POS({ currentUser }: POSProps) {
   const [initialShiftCash, setInitialShiftCash] = useState(0);
   const [actualShiftCash, setActualShiftCash] = useState(0);
 
+  // Cart item editing (Price override)
+  const [editingCartItem, setEditingCartItem] = useState<number | null>(null);
+  const [showCartItemModal, setShowCartItemModal] = useState(false);
+  const [tempItemPrice, setTempItemPrice] = useState(0);
+
   // Auto print toggle
   const [autoPrint, setAutoPrint] = useState(true);
 
@@ -223,25 +228,45 @@ export default function POS({ currentUser }: POSProps) {
   const subtotal = cart.reduce((sum, item) => {
     let price = item.product.sellPrice;
     
-    // 1. Check for Group Offers (Multi-product offers)
-    const activeOffer = activeOffers.find(off => off.productIds.includes(item.product.id!));
-    if (activeOffer) {
-       if (activeOffer.discountPercent > 0) price = price * (1 - activeOffer.discountPercent / 100);
-       else if (activeOffer.discountAmount > 0) price = Math.max(0, price - activeOffer.discountAmount);
+    // 0. CHECK OVERRIDE FIRST
+    if (item.overridePrice !== undefined) {
+       price = item.overridePrice;
     }
-    // 2. Check Bulk Pricing
-    else if ((item.product.bulkQuantity || 0) > 0 && item.quantity >= (item.product.bulkQuantity || 0)) {
-       price = item.product.bulkPrice || price;
-    } 
-    // 3. Check Individual Discount
-    else if ((item.product.discountPrice || 0) > 0) {
-       price = Math.min(price, item.product.discountPrice || price);
-    } else if ((item.product.discountPercent || 0) > 0) {
-       price = price * (1 - (item.product.discountPercent || 0) / 100);
+    // 1. Check for Group Offers (Multi-product offers)
+    else {
+      const activeOffer = activeOffers.find(off => off.productIds.includes(item.product.id!));
+      if (activeOffer) {
+         if (activeOffer.discountPercent > 0) price = price * (1 - activeOffer.discountPercent / 100);
+         else if (activeOffer.discountAmount > 0) price = Math.max(0, price - activeOffer.discountAmount);
+      }
+      // 2. Check Bulk Pricing
+      else if ((item.product.bulkQuantity || 0) > 0 && item.quantity >= (item.product.bulkQuantity || 0)) {
+         price = item.product.bulkPrice || price;
+      } 
+      // 3. Check Individual Discount
+      else if ((item.product.discountPrice || 0) > 0) {
+         price = Math.min(price, item.product.discountPrice || price);
+      } else if ((item.product.discountPercent || 0) > 0) {
+         price = price * (1 - (item.product.discountPercent || 0) / 100);
+      }
     }
     
     return sum + price * item.quantity;
   }, 0);
+
+  const updateCartItemOverride = (productId: number, price: number) => {
+     setCart(cart.map(i => i.product.id === productId ? { ...i, overridePrice: price } : i));
+     setShowCartItemModal(false);
+  };
+
+  const applyJumlaPrice = (productId: number) => {
+     const item = cart.find(i => i.product.id === productId);
+     if (item && item.product.bulkPrice) {
+        updateCartItemOverride(productId, item.product.bulkPrice);
+     } else {
+        alert('هذا المنتج لا يحتوي على سعر جملة محدد!');
+     }
+  };
 
   const applyCoupon = () => {
     const coupon = allCoupons.find(c => c.code === couponCode.trim().toUpperCase() && c.active);
@@ -294,7 +319,10 @@ export default function POS({ currentUser }: POSProps) {
          setCurrentShift(s);
          setShowShiftOpenModal(false);
          enterFullScreen();
-       } catch (err) { alert('خطأ في فتح الوردية'); }
+       } catch (err: any) { 
+         console.error('Shift open error:', err);
+         alert(`خطأ في فتح الوردية: ${err.message || 'تأكد من تحديث قاعدة البيانات'}`); 
+       }
     }
   };
 
@@ -306,7 +334,10 @@ export default function POS({ currentUser }: POSProps) {
          setCurrentShift(null);
          setShowShiftCloseModal(false);
          setShowShiftOpenModal(true); // Open new shift immediately
-       } catch (err) { alert('خطأ في تقفيل الوردية'); }
+       } catch (err: any) { 
+         console.error('Shift close error:', err);
+         alert(`خطأ في تقفيل الوردية: ${err.message || 'حدث خطأ غير متوقع'}`); 
+       }
     }
   };
 
@@ -355,10 +386,11 @@ export default function POS({ currentUser }: POSProps) {
       paid: actualPaid,
       remaining: parseFloat((actualPaid - total).toFixed(2)),
       cashier: currentUser?.fullName || currentUser?.username || 'مدير',
-      profit: parseFloat((profit * (1 + tax / 100) - profit * (discount / 100)).toFixed(2)),
+      profit: parseFloat((profit * (1 - discount / 100) * (1 + tax / 100)).toFixed(2)),
       paymentMethod,
       cashAmount: paymentMethod === 'mixed' ? cashAmount : paymentMethod === 'cash' ? actualPaid : 0,
       visaAmount: paymentMethod === 'mixed' ? visaAmount : paymentMethod === 'visa' ? actualPaid : 0,
+      shiftId: currentShift?.id,
     };
 
     try {
@@ -780,15 +812,30 @@ export default function POS({ currentUser }: POSProps) {
                   <td className="p-1.5 text-center">
                     <div className="flex gap-1 justify-center">
                       <button onClick={() => removeFromCart(item.product.id)} className="bg-red-600 hover:bg-red-700 text-white w-6 h-6 rounded text-[10px] font-bold transition-colors">✕</button>
+                      <button 
+                        onClick={() => { setEditingCartItem(item.product.id); setTempItemPrice(item.overridePrice || item.product.sellPrice); setShowCartItemModal(true); }}
+                        className="bg-yellow-600 hover:bg-yellow-700 text-white w-6 h-6 rounded text-[10px] font-bold transition-colors"
+                        title="خصم / جملة"
+                      >
+                        ⚡
+                      </button>
                       <button onClick={() => updateQuantity(item.product.id, -1)} className="bg-red-500 hover:bg-red-600 text-white w-6 h-6 rounded text-[10px] font-bold transition-colors">-</button>
                       <button onClick={() => updateQuantity(item.product.id, 1)} className="bg-green-500 hover:bg-green-600 text-white w-6 h-6 rounded text-[10px] font-bold transition-colors">+</button>
                     </div>
                   </td>
-                  <td className="p-1.5 text-center font-bold text-yellow-300">{(item.product.sellPrice * item.quantity).toFixed(2)}</td>
+                  <td className="p-1.5 text-center font-bold text-yellow-300">
+                    {((item.overridePrice || item.product.sellPrice) * item.quantity).toFixed(2)}
+                  </td>
                   <td className="p-1.5 text-center">
                     <span className="bg-gray-700 px-2 py-0.5 rounded font-bold text-white">{item.quantity}</span>
                   </td>
-                  <td className="p-1.5 text-center">{item.product.sellPrice.toFixed(2)}</td>
+                  <td className="p-1.5 text-center">
+                    {item.overridePrice ? (
+                       <span className="text-orange-400 font-bold underline">{item.overridePrice.toFixed(2)}</span>
+                    ) : (
+                       item.product.sellPrice.toFixed(2)
+                    )}
+                  </td>
                   <td className="p-1.5 text-right font-medium max-w-[200px] lg:max-w-[300px] truncate">{item.product.name}</td>
                   <td className="p-1.5 text-center text-gray-500">{idx + 1}</td>
                 </tr>
@@ -1603,6 +1650,50 @@ export default function POS({ currentUser }: POSProps) {
                      إلغاء التقفيل
                    </button>
                 </div>
+             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cart Item Price Modal */}
+      {showCartItemModal && editingCartItem !== null && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[120] p-4" onClick={() => setShowCartItemModal(false)}>
+          <div className="bg-[#1e293b] rounded-3xl p-6 w-full max-w-sm border border-yellow-500/30 text-right shadow-2xl" onClick={e => e.stopPropagation()}>
+             <h3 className="text-xl font-bold text-white mb-4">🔧 تعديل سعر المنتج في السلة</h3>
+             
+             <div className="space-y-5">
+                <div>
+                   <label className="text-xs text-gray-400 mb-2 block">السعر المخصص (سعر البيع لهذه العملية)</label>
+                   <input 
+                     type="number" 
+                     autoFocus
+                     className="w-full bg-gray-900 border-2 border-gray-700 focus:border-yellow-500 rounded-xl px-4 py-3 text-2xl text-center text-white outline-none"
+                     value={tempItemPrice}
+                     onChange={e => setTempItemPrice(Number(e.target.value))}
+                   />
+                </div>
+
+                <div className="flex gap-2">
+                   <button 
+                     onClick={() => applyJumlaPrice(editingCartItem)}
+                     className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl text-xs transition-all"
+                   >
+                     🚀 تطبيق سعر الجملة
+                   </button>
+                   <button 
+                     onClick={() => updateCartItemOverride(editingCartItem, tempItemPrice)}
+                     className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-3 rounded-xl text-xs transition-all"
+                   >
+                     ✅ حفظ السعر
+                   </button>
+                </div>
+                
+                <button 
+                  onClick={() => setShowCartItemModal(false)}
+                  className="w-full bg-gray-800 text-gray-400 font-bold py-3 rounded-xl text-xs"
+                >
+                  إلغاء
+                </button>
              </div>
           </div>
         </div>
