@@ -59,6 +59,10 @@ export default function POS({ currentUser }: POSProps) {
   const [quickProduct, setQuickProduct] = useState({ name: '', barcode: '', quantity: 1, buyPrice: 0, sellPrice: 0, category: 'عام' });
   const [quickProductImage, setQuickProductImage] = useState('');
 
+  // Loyalty Points
+  const [usePoints, setUsePoints] = useState(false);
+  const [pointsDiscount, setPointsDiscount] = useState(0);
+
   // Held invoices (suspended)
   interface HeldInvoice {
     id: string;
@@ -261,6 +265,22 @@ export default function POS({ currentUser }: POSProps) {
     return sum + price * item.quantity;
   }, 0);
 
+  // Handle Points Redemption (Moved here so subtotal is defined)
+  useEffect(() => {
+    if (usePoints && selectedClient !== 'عميل نقدي') {
+      const client = clients.find(c => c.name === selectedClient);
+      if (client && client.points > 0) {
+        const maxRedeem = Math.min(client.points, subtotal);
+        setPointsDiscount(maxRedeem);
+      } else {
+        setPointsDiscount(0);
+        setUsePoints(false);
+      }
+    } else {
+      setPointsDiscount(0);
+    }
+  }, [usePoints, selectedClient, subtotal, clients]);
+
   const updateCartItemOverride = (productId: number, price: number) => {
      setCart(cart.map(i => i.product.id === productId ? { ...i, overridePrice: price } : i));
      setShowCartItemModal(false);
@@ -296,7 +316,7 @@ export default function POS({ currentUser }: POSProps) {
     return appliedCoupon.discountAmount;
   };
 
-  const finalDiscountAmount = (subtotal * (discount / 100)) + getCouponDiscount();
+  const finalDiscountAmount = (subtotal * (discount / 100)) + getCouponDiscount() + pointsDiscount;
   const taxAmount = (subtotal - finalDiscountAmount) * (tax / 100);
   const total = subtotal - finalDiscountAmount + taxAmount;
   const totalPaid = paymentMethod === 'mixed' ? cashAmount + visaAmount : paid;
@@ -501,6 +521,8 @@ export default function POS({ currentUser }: POSProps) {
       setCashAmount(0);
       setVisaAmount(0);
       setPaymentMethod('cash');
+      setUsePoints(false);
+      setPointsDiscount(0);
       setShowPaymentModal(false);
       generateInvoiceId();
       saveCartDisplay({ items: [], total: 0, storeName: settings.storeName });
@@ -510,6 +532,23 @@ export default function POS({ currentUser }: POSProps) {
         const newShiftTotal = currentShift.totalSales + invoice.total;
         const newExpected = currentShift.expectedCash + (invoice.paymentMethod === 'cash' ? (invoice.paid || 0) : (invoice.paymentMethod === 'mixed' ? (invoice.cashAmount || 0) : 0));
         setCurrentShift({ ...currentShift, totalSales: newShiftTotal, expectedCash: newExpected });
+      }
+
+      // 4. Update Loyalty Points in Supabase
+      if (selectedClient !== 'عميل نقدي') {
+        const client = clients.find(c => c.name === selectedClient);
+        if (client) {
+          let updatedPoints = client.points;
+          if (usePoints) {
+            updatedPoints -= pointsDiscount;
+          }
+          // Earn points: 1 point for every 100 DZD of the total
+          const earned = Math.floor(invoice.total / 100);
+          updatedPoints += earned;
+          
+          await saveClient({ ...client, points: updatedPoints });
+          setClients(await getClients());
+        }
       }
 
       alert('تمت عملية البيع بنجاح! ✅');
@@ -668,6 +707,7 @@ export default function POS({ currentUser }: POSProps) {
       phone: newClientPhone.trim(),
       address: newClientAddress.trim(),
       debt: 0,
+      points: 0,
     };
     await saveClient(newClient);
     setClients(await getClients());
@@ -853,10 +893,26 @@ export default function POS({ currentUser }: POSProps) {
           <div className="flex justify-between items-center gap-2">
             <div className="flex items-center gap-1.5 flex-1">
               <button onClick={() => setShowAddClientModal(true)} className="bg-green-600 hover:bg-green-700 text-white w-6 h-6 rounded text-xs font-bold">+</button>
-              <select value={selectedClient} onChange={(e) => setSelectedClient(e.target.value)} className="flex-1 bg-gray-800 text-white border border-gray-700 rounded px-2 py-0.5 text-[10px] lg:text-xs">
-                {clients.map(c => <option key={c.id} value={c.name}>{c.name}{c.debt > 0 ? ` (${c.debt}دج)` : ''}</option>)}
+              <select value={selectedClient} onChange={(e) => { setSelectedClient(e.target.value); setUsePoints(false); }} className="flex-1 bg-gray-800 text-white border border-gray-700 rounded px-2 py-0.5 text-[10px] lg:text-xs">
+                {clients.map(c => (
+                  <option key={c.id} value={c.name}>
+                    {c.name} 
+                    {c.points > 0 ? ` [🌟 ${c.points}]` : ''}
+                    {c.debt > 0 ? ` (💸 ${c.debt}دج)` : ''}
+                  </option>
+                ))}
               </select>
             </div>
+            {selectedClient !== 'عميل نقدي' && (
+              <div className="flex items-center gap-1">
+                <button 
+                  onClick={() => setUsePoints(!usePoints)}
+                  className={`px-2 py-0.5 rounded text-[9px] font-bold transition-all ${usePoints ? 'bg-yellow-500 text-black' : 'bg-gray-700 text-yellow-400 border border-yellow-500/30'}`}
+                >
+                  {usePoints ? '✅ تم الخصم' : '🌟 تبديل نقاط'}
+                </button>
+              </div>
+            )}
             <div className="flex flex-col items-end shrink-0">
                <span className="text-[9px] lg:text-[10px] text-gray-500">{today}</span>
                <span className="text-yellow-400 font-bold text-[10px] lg:text-xs">{invoiceId}</span>

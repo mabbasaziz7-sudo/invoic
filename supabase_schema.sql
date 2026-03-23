@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS clients (
     phone TEXT,
     address TEXT,
     debt DECIMAL DEFAULT 0,
+    points INTEGER DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

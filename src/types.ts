@@ -28,6 +28,7 @@ export interface Client {
   phone: string;
   address?: string;
   debt: number;
+  points: number;
 }
 
 export interface InvoiceItem {
