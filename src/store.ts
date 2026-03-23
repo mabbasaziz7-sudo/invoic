@@ -114,9 +114,21 @@ export function saveSettings(settings: any) {
 
 // 7. المستخدمون (Users)
 export async function getUsers(): Promise<User[]> {
-  const { data, error } = await supabase.from('users').select('*');
+  const { data, error } = await supabase.from('users').select('*').order('id');
   if (error) return [];
   return data as User[];
+}
+
+export async function saveUser(user: Partial<User>) {
+  if (user.id) {
+    await supabase.from('users').update(user).eq('id', user.id);
+  } else {
+    await supabase.from('users').insert(user);
+  }
+}
+
+export async function deleteUserFromDB(id: number) {
+  await supabase.from('users').delete().eq('id', id);
 }
 
 // 8. الأصناف (Categories)
@@ -152,10 +164,6 @@ export function logoutUser() {
   localStorage.removeItem('bakhcha_current_user');
 }
 
-export function getUserPermissions(user: User): UserPermissions {
-  if (user.permissions) return user.permissions;
-  return defaultPermissions[user.role] || defaultPermissions['كاشير'];
-}
 
 // Cart display (للشاشة الثانية)
 export function saveCartDisplay(displayData: any) {

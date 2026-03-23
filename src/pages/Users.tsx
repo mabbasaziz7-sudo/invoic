@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { User, UserPermissions, defaultPermissions } from '../types';
-import { getUsers, saveUsers } from '../store';
+import { getUsers, saveUser, deleteUserFromDB } from '../store';
 
 const permissionLabels: { key: keyof UserPermissions; label: string; icon: string; group: string }[] = [
   { key: 'pos', label: 'نقطة البيع', icon: '🛒', group: 'الصفحات' },
@@ -34,7 +34,12 @@ export default function Users() {
   });
   const [searchTerm, setSearchTerm] = useState('');
 
-  useEffect(() => { setUsers(getUsers()); }, []);
+  useEffect(() => {
+    const load = async () => {
+      setUsers(await getUsers());
+    };
+    load();
+  }, []);
 
   const openAdd = () => {
     setForm({
@@ -51,7 +56,7 @@ export default function Users() {
     setForm({
       username: u.username, password: u.password, role: u.role,
       fullName: u.fullName || '', phone: u.phone || '', active: u.active !== false,
-      permissions: u.permissions ? { ...u.permissions } : { ...defaultPermissions[u.role] || defaultPermissions['كاشير'] },
+      permissions: u.permissions ? { ...u.permissions } : { ...defaultPermissions[u.role || 'كاشير'] },
     });
     setEditUser(u);
     setShowPermissions(false);
@@ -59,7 +64,7 @@ export default function Users() {
   };
 
   const handleRoleChange = (role: string) => {
-    const perms = defaultPermissions[role] || defaultPermissions['كاشير'];
+    const perms = defaultPermissions[role as keyof typeof defaultPermissions] || defaultPermissions['كاشير'];
     setForm({ ...form, role, permissions: { ...perms } });
   };
 
@@ -70,53 +75,51 @@ export default function Users() {
     });
   };
 
-  const saveUser = () => {
+  const handleSaveUser = async () => {
     if (!form.username || !form.password) { alert('أكمل البيانات المطلوبة'); return; }
     const existingUser = users.find(u => u.username === form.username && u.id !== editUser?.id);
     if (existingUser) { alert('اسم المستخدم موجود بالفعل'); return; }
 
-    let updated: User[];
+    const userData: Partial<User> = {
+      username: form.username,
+      password: form.password,
+      role: form.role,
+      fullName: form.fullName,
+      phone: form.phone,
+      active: form.active,
+      permissions: form.permissions,
+    };
+
     if (editUser) {
-      updated = users.map(u => u.id === editUser.id ? {
-        ...u,
-        username: form.username, password: form.password, role: form.role,
-        fullName: form.fullName, phone: form.phone, active: form.active,
-        permissions: form.permissions,
-      } : u);
-    } else {
-      const newId = users.length > 0 ? Math.max(...users.map(u => u.id)) + 1 : 1;
-      updated = [...users, {
-        id: newId,
-        username: form.username, password: form.password, role: form.role,
-        fullName: form.fullName, phone: form.phone, active: form.active,
-        permissions: form.permissions,
-      }];
+      userData.id = editUser.id;
     }
-    saveUsers(updated);
-    setUsers(updated);
+
+    await saveUser(userData);
+    setUsers(await getUsers());
     setShowModal(false);
   };
 
-  const toggleActive = (id: number) => {
-    const updated = users.map(u => u.id === id ? { ...u, active: u.active === false ? true : false } : u);
-    saveUsers(updated);
-    setUsers(updated);
+  const toggleActive = async (user: User) => {
+    const updatedUser = { ...user, active: user.active === false ? true : false };
+    await saveUser(updatedUser);
+    setUsers(await getUsers());
   };
 
-  const deleteUser = (id: number) => {
+  const handleDeleteUser = async (id: number) => {
     const u = users.find(x => x.id === id);
     if (u?.role === 'مدير' && users.filter(x => x.role === 'مدير').length <= 1) {
       alert('لا يمكن حذف آخر مدير في النظام');
       return;
     }
     if (!confirm('هل أنت متأكد من حذف هذا المستخدم؟')) return;
-    const updated = users.filter(u => u.id !== id);
-    saveUsers(updated);
-    setUsers(updated);
+    await deleteUserFromDB(id);
+    setUsers(await getUsers());
   };
 
   const filteredUsers = users.filter(u =>
-    u.username.includes(searchTerm) || u.fullName?.includes(searchTerm) || u.role.includes(searchTerm)
+    u.username.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    (u.fullName || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+    u.role.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const getRoleColor = (role: string) => {
@@ -191,18 +194,13 @@ export default function Users() {
               <div className="flex items-center gap-2 text-gray-400">
                 <span>🔐</span> <span>كلمة المرور: {'•'.repeat(u.password.length)}</span>
               </div>
-              {u.lastLogin && (
-                <div className="flex items-center gap-2 text-gray-500 text-[11px]">
-                  <span>🕐</span> <span>آخر دخول: {new Date(u.lastLogin).toLocaleDateString('ar-DZ')}</span>
-                </div>
-              )}
             </div>
 
             {/* Permission Summary */}
             <div className="bg-gray-800/50 rounded-lg p-2 mb-3">
               <p className="text-[10px] text-gray-500 mb-1">الصلاحيات:</p>
               <div className="flex flex-wrap gap-1">
-                {(u.permissions ? Object.entries(u.permissions) : Object.entries(defaultPermissions[u.role] || defaultPermissions['كاشير']))
+                {(u.permissions ? Object.entries(u.permissions) : Object.entries(defaultPermissions[u.role as keyof typeof defaultPermissions] || defaultPermissions['كاشير']))
                   .filter(([, v]) => v)
                   .slice(0, 6)
                   .map(([k]) => {
@@ -211,19 +209,16 @@ export default function Users() {
                       <span key={k} className="text-[10px] bg-sky-700/50 text-sky-300 px-1.5 py-0.5 rounded">{perm.icon}</span>
                     ) : null;
                   })}
-                {(u.permissions ? Object.values(u.permissions).filter(Boolean).length : Object.values(defaultPermissions[u.role] || {}).filter(Boolean).length) > 6 && (
-                  <span className="text-[10px] text-gray-500">+المزيد</span>
-                )}
               </div>
             </div>
 
             {/* Actions */}
             <div className="flex gap-2">
               <button onClick={() => openEdit(u)} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg text-xs font-bold transition-all">✏️ تعديل</button>
-              <button onClick={() => toggleActive(u.id)} className={`flex-1 ${u.active !== false ? 'bg-orange-600 hover:bg-orange-700' : 'bg-green-600 hover:bg-green-700'} text-white py-2 rounded-lg text-xs font-bold transition-all`}>
+              <button onClick={() => toggleActive(u)} className={`flex-1 ${u.active !== false ? 'bg-orange-600 hover:bg-orange-700' : 'bg-green-600 hover:bg-green-700'} text-white py-2 rounded-lg text-xs font-bold transition-all`}>
                 {u.active !== false ? '🚫 تعطيل' : '✅ تفعيل'}
               </button>
-              <button onClick={() => deleteUser(u.id)} className="bg-red-600 hover:bg-red-700 text-white py-2 px-3 rounded-lg text-xs font-bold transition-all">🗑️</button>
+              <button onClick={() => handleDeleteUser(u.id)} className="bg-red-600 hover:bg-red-700 text-white py-2 px-3 rounded-lg text-xs font-bold transition-all">🗑️</button>
             </div>
           </div>
         ))}
@@ -348,7 +343,7 @@ export default function Users() {
 
               {/* Buttons */}
               <div className="flex gap-3 pt-2">
-                <button onClick={saveUser} className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-xl font-bold text-sm sm:text-base transition-all shadow-lg">
+                <button onClick={handleSaveUser} className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-xl font-bold text-sm sm:text-base transition-all shadow-lg">
                   💾 حفظ
                 </button>
                 <button onClick={() => setShowModal(false)} className="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-2.5 rounded-xl font-bold text-sm sm:text-base transition-all">
