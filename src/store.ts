@@ -1,185 +1,169 @@
 import { Product, Client, Invoice, Expense, User, ReturnRecord, UserPermissions, defaultPermissions } from './types';
+import { supabase } from './lib/supabase';
 
-const PRODUCTS_KEY = 'bakhcha_products';
-const CLIENTS_KEY = 'bakhcha_clients';
-const INVOICES_KEY = 'bakhcha_invoices';
-const EXPENSES_KEY = 'bakhcha_expenses';
-const USERS_KEY = 'bakhcha_users';
-const SETTINGS_KEY = 'bakhcha_settings';
-const CATEGORIES_KEY = 'bakhcha_categories';
-const RETURNS_KEY = 'bakhcha_returns';
-const CART_DISPLAY_KEY = 'bakhcha_cart_display';
-const CURRENT_USER_KEY = 'bakhcha_current_user';
+// --- مساعدات (Helpers) ---
+const INVOICES_KEY = 'bakhcha_invoices'; // لا نزال نحتاج لبعض التخزين المؤقت أحياناً
 
-const defaultProducts: Product[] = [
-  { id: 1, name: 'منتج تجريبي مع ضريبة', barcode: '123456789', quantity: 31, buyPrice: 60, sellPrice: 100, category: 'عام', expiryDate: null, minStock: 5, image: '' },
-  { id: 2, name: 'شوكولاطة', barcode: '5901234123457', quantity: 682, buyPrice: 450, sellPrice: 700, category: 'مواد غذائية', expiryDate: null, minStock: 10, image: '' },
-  { id: 3, name: 'مربى', barcode: '4006381333931', quantity: 493, buyPrice: 75, sellPrice: 117, category: 'مواد غذائية', expiryDate: '2026-03-25', minStock: 5, image: '' },
-  { id: 4, name: 'ماكسي', barcode: '8690504012009', quantity: 5988, buyPrice: 400, sellPrice: 617, category: 'حليب ومشتقاته', expiryDate: '2026-04-19', minStock: 10, image: '' },
-  { id: 5, name: 'عطر فخم', barcode: '2958642392', quantity: 495, buyPrice: 1800, sellPrice: 2500, category: 'عام', expiryDate: null, minStock: 5, image: '' },
-  { id: 6, name: 'sucre', barcode: '2955208208', quantity: 50, buyPrice: 180, sellPrice: 250, category: 'مواد غذائية', expiryDate: null, minStock: 5, image: '' },
-  { id: 7, name: 'sucre', barcode: '2943991599', quantity: 47, buyPrice: 350, sellPrice: 520, category: 'مواد غذائية', expiryDate: null, minStock: 5, image: '' },
-  { id: 8, name: 'sucre1', barcode: '2925564643', quantity: 6, buyPrice: 35, sellPrice: 55, category: 'مواد غذائية', expiryDate: null, minStock: 5, image: '' },
-  { id: 9, name: 'tomate', barcode: '2937910599', quantity: 200, buyPrice: 170, sellPrice: 250, category: 'مواد غذائية', expiryDate: null, minStock: 5, image: '' },
-  { id: 10, name: 'ff', barcode: '2994065328', quantity: 100, buyPrice: 170, sellPrice: 250, category: 'عام', expiryDate: null, minStock: 5, image: '' },
-];
-
-const defaultClients: Client[] = [
-  { id: 1, name: 'عميل نقدي', phone: '', debt: 0 },
-  { id: 2, name: 'أحمد محمد', phone: '0555-12-34-56', debt: 1500 },
-  { id: 3, name: 'خالد علي', phone: '0666-78-90-12', debt: 3200 },
-];
-
-const defaultUsers: User[] = [
-  { id: 1, username: 'admin', password: 'admin', role: 'مدير', fullName: 'المدير العام', phone: '0555000000', active: true, permissions: defaultPermissions['مدير'] },
-  { id: 2, username: 'cashier1', password: '1234', role: 'كاشير', fullName: 'كاشير 1', phone: '0666000000', active: true, permissions: defaultPermissions['كاشير'] },
-  { id: 3, username: 'supervisor', password: '1234', role: 'مشرف', fullName: 'المشرف', phone: '0777000000', active: true, permissions: defaultPermissions['مشرف'] },
-];
-
-const defaultCategories = ['الكل', 'حليب ومشتقاته', 'عام', 'مواد غذائية'];
-
-const defaultSettings: Record<string, any> = {
-  storeName: 'Bakhcha Pro Supermarket',
-  phone: '55-55-55-0555',
-  address: 'حي المعارض الشريعة',
-  defaultTax: 17,
-  currency: 'دج',
-  logo: '',
-  invoiceTitle: '',
-  invoiceFooter: 'شكراً لزيارتكم - نتمنى لكم يوماً سعيداً 🙏',
-  invoiceNotes: '',
-  taxNumber: '',
-  nif: '',
-  showLogoOnInvoice: true,
-  showQROnInvoice: true,
-  showBarcodeOnInvoice: true,
-  invoiceSize: 'receipt',
-  customerWelcome: 'مرحباً بكم',
-  customerAd: '',
-  showLogoOnDisplay: true,
-  displayTheme: 'dark',
-};
-
-export function getProducts(): Product[] {
-  const data = localStorage.getItem(PRODUCTS_KEY);
-  if (data) return JSON.parse(data);
-  localStorage.setItem(PRODUCTS_KEY, JSON.stringify(defaultProducts));
-  return defaultProducts;
+// 1. المنتجات (Products)
+export async function getProducts(): Promise<Product[]> {
+  const { data, error } = await supabase
+    .from('products')
+    .select('*')
+    .order('id', { ascending: true });
+  if (error) { console.error('Error fetching products:', error); return []; }
+  return data as Product[];
 }
 
-export function saveProducts(products: Product[]) {
-  localStorage.setItem(PRODUCTS_KEY, JSON.stringify(products));
-}
-
-export function getClients(): Client[] {
-  const data = localStorage.getItem(CLIENTS_KEY);
-  if (data) return JSON.parse(data);
-  localStorage.setItem(CLIENTS_KEY, JSON.stringify(defaultClients));
-  return defaultClients;
-}
-
-export function saveClients(clients: Client[]) {
-  localStorage.setItem(CLIENTS_KEY, JSON.stringify(clients));
-}
-
-export function getInvoices(): Invoice[] {
-  const data = localStorage.getItem(INVOICES_KEY);
-  if (data) return JSON.parse(data);
-  return [];
-}
-
-export function saveInvoices(invoices: Invoice[]) {
-  localStorage.setItem(INVOICES_KEY, JSON.stringify(invoices));
-}
-
-export function getExpenses(): Expense[] {
-  const data = localStorage.getItem(EXPENSES_KEY);
-  if (data) return JSON.parse(data);
-  return [];
-}
-
-export function saveExpenses(expenses: Expense[]) {
-  localStorage.setItem(EXPENSES_KEY, JSON.stringify(expenses));
-}
-
-export function getUsers(): User[] {
-  const data = localStorage.getItem(USERS_KEY);
-  if (data) return JSON.parse(data);
-  localStorage.setItem(USERS_KEY, JSON.stringify(defaultUsers));
-  return defaultUsers;
-}
-
-export function saveUsers(users: User[]) {
-  localStorage.setItem(USERS_KEY, JSON.stringify(users));
-}
-
-export function getSettings() {
-  const data = localStorage.getItem(SETTINGS_KEY);
-  if (data) return JSON.parse(data);
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify(defaultSettings));
-  return defaultSettings;
-}
-
-export function saveSettings(settings: Record<string, any>) {
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-}
-
-export function getCategories(): string[] {
-  const data = localStorage.getItem(CATEGORIES_KEY);
-  if (data) return JSON.parse(data);
-  localStorage.setItem(CATEGORIES_KEY, JSON.stringify(defaultCategories));
-  return defaultCategories;
-}
-
-export function saveCategories(categories: string[]) {
-  localStorage.setItem(CATEGORIES_KEY, JSON.stringify(categories));
-}
-
-export function getReturns(): ReturnRecord[] {
-  const data = localStorage.getItem(RETURNS_KEY);
-  if (data) return JSON.parse(data);
-  return [];
-}
-
-export function saveReturns(returns: ReturnRecord[]) {
-  localStorage.setItem(RETURNS_KEY, JSON.stringify(returns));
-}
-
-export function getCartDisplay() {
-  const data = localStorage.getItem(CART_DISPLAY_KEY);
-  if (data) return JSON.parse(data);
-  return { items: [], total: 0, storeName: defaultSettings.storeName };
-}
-
-export function saveCartDisplay(displayData: { items: { name: string; quantity: number; price: number; total: number }[]; total: number; storeName: string }) {
-  localStorage.setItem(CART_DISPLAY_KEY, JSON.stringify(displayData));
-}
-
-// Auth functions
-export function loginUser(username: string, password: string): User | null {
-  const users = getUsers();
-  const user = users.find(u => u.username === username && u.password === password);
-  if (user && user.active !== false) {
-    const updatedUser = { ...user, lastLogin: new Date().toISOString() };
-    const updatedUsers = users.map(u => u.id === user.id ? updatedUser : u);
-    saveUsers(updatedUsers);
-    localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(updatedUser));
-    return updatedUser;
+export async function saveProduct(product: Partial<Product>) {
+  if (product.id) {
+    const { error } = await supabase.from('products').update(product).eq('id', product.id);
+    if (error) console.error('Error updating product:', error);
+  } else {
+    const { error } = await supabase.from('products').insert(product);
+    if (error) console.error('Error inserting product:', error);
   }
-  return null;
+}
+
+export async function deleteProduct(id: number) {
+  const { error } = await supabase.from('products').delete().eq('id', id);
+  if (error) console.error('Error deleting product:', error);
+}
+
+// 2. العملاء (Clients)
+export async function getClients(): Promise<Client[]> {
+  const { data, error } = await supabase.from('clients').select('*').order('name');
+  if (error) return [];
+  return data as Client[];
+}
+
+export async function saveClient(client: Partial<Client>) {
+  if (client.id) {
+    await supabase.from('clients').update(client).eq('id', client.id);
+  } else {
+    await supabase.from('clients').insert(client);
+  }
+}
+
+export async function deleteClient(id: number) {
+  await supabase.from('clients').delete().eq('id', id);
+}
+
+// 3. الفواتير (Invoices)
+export async function getInvoices(): Promise<Invoice[]> {
+  const { data, error } = await supabase
+    .from('invoices')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (error) return [];
+  return data as Invoice[];
+}
+
+export async function saveInvoice(invoice: Invoice) {
+  const { error } = await supabase.from('invoices').insert(invoice);
+  if (error) console.error('Error saving invoice:', error);
+}
+
+export async function deleteInvoiceFromDB(id: string) {
+  const { error } = await supabase.from('invoices').delete().eq('id', id);
+  if (error) console.error('Error deleting invoice:', error);
+}
+
+// 4. المصاريف (Expenses)
+export async function getExpenses(): Promise<Expense[]> {
+  const { data, error } = await supabase.from('expenses').select('*').order('date', { ascending: false });
+  if (error) return [];
+  return data as Expense[];
+}
+
+export async function saveExpense(expense: Expense) {
+  await supabase.from('expenses').insert(expense);
+}
+
+// 5. المرتجعات (Returns)
+export async function getReturns(): Promise<ReturnRecord[]> {
+  const { data, error } = await supabase.from('returns').select('*').order('date', { ascending: false });
+  if (error) return [];
+  return data as ReturnRecord[];
+}
+
+export async function saveReturn(record: ReturnRecord) {
+  await supabase.from('returns').insert(record);
+}
+
+// 6. الإعدادات (Settings) - سنستخدم localStorage كخيار احتياطي ومزامنتها مع Supabase
+export function getSettings() {
+  const data = localStorage.getItem('bakhcha_settings');
+  if (data) return JSON.parse(data);
+  return {
+    storeName: 'Bakhcha Pro Supermarket',
+    phone: '55-55-55-0555',
+    address: 'حي المعارض الشريعة',
+    defaultTax: 17,
+    currency: 'دج',
+    logo: '',
+    showLogoOnInvoice: true,
+    showQROnInvoice: true,
+    showBarcodeOnInvoice: true,
+    invoiceSize: 'receipt',
+  };
+}
+
+export function saveSettings(settings: any) {
+  localStorage.setItem('bakhcha_settings', JSON.stringify(settings));
+}
+
+// 7. المستخدمون (Users)
+export async function getUsers(): Promise<User[]> {
+  const { data, error } = await supabase.from('users').select('*');
+  if (error) return [];
+  return data as User[];
+}
+
+// 8. الأصناف (Categories)
+export async function getCategories(): Promise<string[]> {
+  const { data, error } = await supabase.from('products').select('category');
+  if (error) return ['الكل', 'عام'];
+  const cats = Array.from(new Set(data.map(d => d.category)));
+  return ['الكل', ...cats];
+}
+
+// 9. Auth functions (سنعتمد على Supabase Auth أو جدول المستخدمين البسيط)
+export async function loginUser(username: string, password: string): Promise<User | null> {
+  const { data, error } = await supabase
+    .from('users')
+    .select('*')
+    .eq('username', username)
+    .eq('password', password)
+    .single();
+    
+  if (error || !data) return null;
+  const user = data as User;
+  localStorage.setItem('bakhcha_current_user', JSON.stringify(user));
+  return user;
 }
 
 export function getCurrentUser(): User | null {
-  const data = localStorage.getItem(CURRENT_USER_KEY);
+  const data = localStorage.getItem('bakhcha_current_user');
   if (data) return JSON.parse(data);
   return null;
 }
 
 export function logoutUser() {
-  localStorage.removeItem(CURRENT_USER_KEY);
+  localStorage.removeItem('bakhcha_current_user');
 }
 
 export function getUserPermissions(user: User): UserPermissions {
   if (user.permissions) return user.permissions;
   return defaultPermissions[user.role] || defaultPermissions['كاشير'];
+}
+
+// Cart display (للشاشة الثانية)
+export function saveCartDisplay(displayData: any) {
+  localStorage.setItem('bakhcha_cart_display', JSON.stringify(displayData));
+}
+
+export function getCartDisplay() {
+  const data = localStorage.getItem('bakhcha_cart_display');
+  if (data) return JSON.parse(data);
+  return { items: [], total: 0, storeName: 'Bakhcha Pro' };
 }

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Barcode from 'react-barcode';
 import { Product, User } from '../types';
-import { getProducts, saveProducts, getCategories, saveCategories, getUserPermissions } from '../store';
+import { getProducts, saveProduct, deleteProduct, getCategories, getUserPermissions } from '../store';
 import BarcodeModal from '../components/BarcodeModal';
 
 interface ProductsProps {
@@ -30,8 +30,11 @@ export default function Products({ currentUser }: ProductsProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    setProducts(getProducts());
-    setCategories(getCategories());
+    const load = async () => {
+      setProducts(await getProducts());
+      setCategories(await getCategories());
+    };
+    load();
   }, []);
 
   const today = new Date();
@@ -109,28 +112,34 @@ export default function Products({ currentUser }: ProductsProps) {
     reader.readAsDataURL(file);
   };
 
-  const saveProduct = () => {
+  const saveProductData = async () => {
     if (!form.name) { alert('أدخل اسم المنتج'); return; }
-    let updated: Product[];
+    
+    const pData: Partial<Product> = {
+      ...form,
+      expiryDate: form.expiryDate || null,
+      image: formImage,
+    };
+
     if (editProduct) {
-      updated = products.map(p => p.id === editProduct.id ? {
-        ...p, ...form, expiryDate: form.expiryDate || null, image: formImage,
-      } : p);
+      await saveProduct({ ...pData, id: editProduct.id });
     } else {
-      const newId = products.length > 0 ? Math.max(...products.map(p => p.id)) + 1 : 1;
-      updated = [...products, { id: newId, ...form, expiryDate: form.expiryDate || null, image: formImage }];
+      await saveProduct(pData);
     }
-    saveProducts(updated);
-    setProducts(updated);
+    
+    setProducts(await getProducts());
     setShowAddModal(false);
   };
 
-  const deleteSelected = () => {
+  const deleteSelected = async () => {
     if (selectedProducts.length === 0) { alert('اختر منتجات للحذف'); return; }
     if (!confirm(`هل أنت متأكد من حذف ${selectedProducts.length} منتج؟`)) return;
-    const updated = products.filter(p => !selectedProducts.includes(p.id));
-    saveProducts(updated);
-    setProducts(updated);
+    
+    for (const id of selectedProducts) {
+      await deleteProduct(id);
+    }
+    
+    setProducts(await getProducts());
     setSelectedProducts([]);
   };
 
@@ -456,7 +465,7 @@ export default function Products({ currentUser }: ProductsProps) {
               </div>
             </div>
             <div className="flex gap-3 mt-4">
-              <button onClick={saveProduct} className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-xl font-bold">✅ حفظ</button>
+              <button onClick={saveProductData} className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-xl font-bold">✅ حفظ</button>
               <button onClick={() => setShowAddModal(false)} className="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-2 rounded-xl font-bold">إلغاء</button>
             </div>
           </div>

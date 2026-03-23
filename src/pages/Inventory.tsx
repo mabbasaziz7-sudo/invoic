@@ -9,7 +9,10 @@ export default function Inventory() {
   const settings = getSettings();
 
   useEffect(() => {
-    setProducts(getProducts());
+    const load = async () => {
+      setProducts(await getProducts());
+    };
+    load();
   }, []);
 
   const today = new Date();

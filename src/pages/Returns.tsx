@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Invoice, ReturnRecord, ReturnItem, Product } from '../types';
-import { getInvoices, getProducts, saveProducts, getReturns, saveReturns, getSettings } from '../store';
+import { getInvoices, getProducts, saveProduct, getReturns, saveReturn, getSettings } from '../store';
 
 export default function Returns() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -17,9 +17,12 @@ export default function Returns() {
   const settings = getSettings();
 
   useEffect(() => {
-    setInvoices(getInvoices());
-    setProducts(getProducts());
-    setReturns(getReturns());
+    const load = async () => {
+      setInvoices(await getInvoices());
+      setProducts(await getProducts());
+      setReturns(await getReturns());
+    };
+    load();
   }, []);
 
   const findInvoice = () => {
@@ -64,7 +67,7 @@ export default function Returns() {
 
   const returnTotal = returnItems.reduce((s, i) => s + i.total, 0);
 
-  const confirmReturn = () => {
+  const confirmReturn = async () => {
     if (returnItems.length === 0) {
       alert('اختر منتجات للإرجاع!');
       return;
@@ -76,6 +79,12 @@ export default function Returns() {
 
     let exchangeItems: { name: string; quantity: number; price: number; total: number }[] = [];
     let refundAmount = returnTotal;
+
+    // 1. Update stock in Supabase for returned items
+    for (const item of returnItems) {
+      const p = products.find(prod => prod.id === item.productId);
+      if (p) await saveProduct({ ...p, quantity: p.quantity + item.quantity });
+    }
 
     if (returnType === 'exchange' && exchangeProductId) {
       const exchangeProduct = products.find(p => p.id === exchangeProductId);
@@ -89,49 +98,30 @@ export default function Returns() {
         }];
         refundAmount = returnTotal - exchangeTotal;
 
-        // Deduct exchange product from stock
-        const updatedProducts = products.map(p =>
-          p.id === exchangeProductId ? { ...p, quantity: p.quantity - exchangeQty } : p
-        );
-        // Add returned items back to stock
-        const finalProducts = updatedProducts.map(p => {
-          const retItem = returnItems.find(ri => ri.productId === p.id);
-          if (retItem) return { ...p, quantity: p.quantity + retItem.quantity };
-          return p;
-        });
-        saveProducts(finalProducts);
-        setProducts(finalProducts);
+        // 2. Deduct exchange product from stock
+        await saveProduct({ ...exchangeProduct, quantity: exchangeProduct.quantity - exchangeQty });
       }
-    } else {
-      // Return only - add items back to stock
-      const updatedProducts = products.map(p => {
-        const retItem = returnItems.find(ri => ri.productId === p.id);
-        if (retItem) return { ...p, quantity: p.quantity + retItem.quantity };
-        return p;
-      });
-      saveProducts(updatedProducts);
-      setProducts(updatedProducts);
     }
 
-    const returnRecord: ReturnRecord = {
+    const record: ReturnRecord = {
       id: returnId,
       invoiceId: selectedInvoice.id,
-      date: now.toISOString().split('T')[0] + ' ' + now.toLocaleTimeString('ar-DZ'),
+      date: now.toISOString().split('T')[0],
       items: returnItems,
       total: returnTotal,
       type: returnType,
       exchangeItems,
       refundAmount,
       client: selectedInvoice.client,
-      cashier: 'مدير',
+      cashier: selectedInvoice.cashier,
     };
 
-    const updatedReturns = [returnRecord, ...returns];
-    saveReturns(updatedReturns);
-    setReturns(updatedReturns);
+    await saveReturn(record);
+    setReturns(await getReturns());
+    setProducts(await getProducts());
 
     // Print return receipt
-    printReturnReceipt(returnRecord);
+    printReturnReceipt(record);
 
     setShowNewReturn(false);
     setSelectedInvoice(null);

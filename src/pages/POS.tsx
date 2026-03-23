@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Product, CartItem, Invoice, Client, PaymentMethod, User } from '../types';
-import { getProducts, saveProducts, getClients, saveClients, getInvoices, saveInvoices, getSettings, getCategories, saveCartDisplay, getUserPermissions } from '../store';
+import { getProducts, saveProduct, getClients, saveClient, getInvoices, saveInvoice, getSettings, getCategories, saveCartDisplay, getUserPermissions } from '../store';
 
 interface POSProps {
   currentUser?: User | null;
@@ -72,11 +72,14 @@ export default function POS({ currentUser }: POSProps) {
   const settings = getSettings();
 
   useEffect(() => {
-    setProducts(getProducts());
-    setCategories(getCategories());
-    setClients(getClients());
-    generateInvoiceId();
-    setTax(settings.defaultTax || 17);
+    const load = async () => {
+      setProducts(await getProducts());
+      setCategories(await getCategories());
+      setClients(await getClients());
+      generateInvoiceId();
+      setTax(settings.defaultTax || 17);
+    };
+    load();
   }, []);
 
   // Sync cart to customer display
@@ -198,7 +201,7 @@ export default function POS({ currentUser }: POSProps) {
     setShowPaymentModal(true);
   };
 
-  const confirmSale = () => {
+  const confirmSale = async () => {
     if (cart.length === 0) {
       alert('السلة فارغة!');
       return;
@@ -235,32 +238,27 @@ export default function POS({ currentUser }: POSProps) {
       visaAmount: paymentMethod === 'mixed' ? visaAmount : paymentMethod === 'visa' ? actualPaid : 0,
     };
 
-    const invoices = getInvoices();
-    invoices.unshift(invoice);
-    saveInvoices(invoices);
+    // 1. Save INVOICE to Supabase
+    await saveInvoice(invoice);
 
-    // Handle client debt
+    // 2. Handle Client Debt in Supabase
     if (actualPaid < total && selectedClient !== 'عميل نقدي') {
       const debt = total - actualPaid;
-      const updatedClients = clients.map(c => {
-        if (c.name === selectedClient) {
-          return { ...c, debt: c.debt + debt };
-        }
-        return c;
-      });
-      saveClients(updatedClients);
-      setClients(updatedClients);
+      const client = clients.find(c => c.name === selectedClient);
+      if (client) {
+        await saveClient({ ...client, debt: client.debt + debt });
+        setClients(await getClients());
+      }
     }
 
-    const updatedProducts = products.map(p => {
-      const cartItem = cart.find(item => item.product.id === p.id);
-      if (cartItem) {
-        return { ...p, quantity: p.quantity - cartItem.quantity };
+    // 3. Update PRODUCT STOCK in Supabase
+    for (const item of cart) {
+      const p = products.find(prod => prod.id === item.product.id);
+      if (p) {
+        await saveProduct({ ...p, quantity: p.quantity - item.quantity });
       }
-      return p;
-    });
-    saveProducts(updatedProducts);
-    setProducts(updatedProducts);
+    }
+    setProducts(await getProducts());
 
     // Auto print if enabled
     if (autoPrint) {
@@ -296,7 +294,7 @@ export default function POS({ currentUser }: POSProps) {
     localStorage.setItem('held_invoices', JSON.stringify(invoices));
   };
 
-  const holdInvoice = (isDelivery = false) => {
+  const holdInvoice = async (isDelivery = false) => {
     if (cart.length === 0) { alert('السلة فارغة!'); return; }
     const held: HeldInvoice = {
       id: invoiceId,
@@ -317,13 +315,11 @@ export default function POS({ currentUser }: POSProps) {
 
     if (isDelivery) {
       // Deduct stock for delivery
-      const updatedProducts = products.map(p => {
-        const cartItem = cart.find(item => item.product.id === p.id);
-        if (cartItem) return { ...p, quantity: p.quantity - cartItem.quantity };
-        return p;
-      });
-      saveProducts(updatedProducts);
-      setProducts(updatedProducts);
+      for (const item of cart) {
+        const p = products.find(prod => prod.id === item.product.id);
+        if (p) await saveProduct({ ...p, quantity: p.quantity - item.quantity });
+      }
+      setProducts(await getProducts());
       printDeliveryInvoice(held);
     }
 
@@ -348,17 +344,15 @@ export default function POS({ currentUser }: POSProps) {
     setShowHeldInvoices(false);
   };
 
-  const deleteHeldInvoice = (id: string) => {
+  const deleteHeldInvoice = async (id: string) => {
     const held = heldInvoices.find(h => h.id === id);
     if (held && held.isDelivery) {
       // Return stock for delivery cancellation
-      const updatedProducts = products.map(p => {
-        const cartItem = held.cart.find(item => item.product.id === p.id);
-        if (cartItem) return { ...p, quantity: p.quantity + cartItem.quantity };
-        return p;
-      });
-      saveProducts(updatedProducts);
-      setProducts(updatedProducts);
+      for (const item of held.cart) {
+        const p = products.find(prod => prod.id === item.product.id);
+        if (p) await saveProduct({ ...p, quantity: p.quantity + item.quantity });
+      }
+      setProducts(await getProducts());
     }
     const updated = heldInvoices.filter(h => h.id !== id);
     saveHeldInvoices(updated);
@@ -414,7 +408,7 @@ export default function POS({ currentUser }: POSProps) {
   };
 
   // Add new client
-  const handleAddClient = () => {
+  const handleAddClient = async () => {
     if (!newClientName.trim()) {
       alert('أدخل اسم العميل!');
       return;
@@ -429,9 +423,8 @@ export default function POS({ currentUser }: POSProps) {
       phone: newClientPhone.trim(),
       debt: 0,
     };
-    const updatedClients = [...clients, newClient];
-    saveClients(updatedClients);
-    setClients(updatedClients);
+    await saveClient(newClient);
+    setClients(await getClients());
     setSelectedClient(newClient.name);
     setNewClientName('');
     setNewClientPhone('');
@@ -439,7 +432,7 @@ export default function POS({ currentUser }: POSProps) {
   };
 
   // Quick add product
-  const handleQuickAddProduct = () => {
+  const handleQuickAddProduct = async () => {
     if (!quickProduct.name.trim()) {
       alert('أدخل اسم المنتج!');
       return;
@@ -462,9 +455,8 @@ export default function POS({ currentUser }: POSProps) {
       minStock: 5,
       image: quickProductImage,
     };
-    const updatedProducts = [...products, newProduct];
-    saveProducts(updatedProducts);
-    setProducts(updatedProducts);
+    await saveProduct(newProduct);
+    setProducts(await getProducts());
     setQuickProduct({ name: '', barcode: '', quantity: 1, buyPrice: 0, sellPrice: 0, category: 'عام' });
     setQuickProductImage('');
     setShowQuickAddProduct(false);
@@ -577,8 +569,8 @@ export default function POS({ currentUser }: POSProps) {
     printWindow.document.close();
   };
 
-  const printLastInvoice = () => {
-    const invoices = getInvoices();
+  const printLastInvoice = async () => {
+    const invoices = await getInvoices();
     if (invoices.length === 0) {
       alert('لا توجد فواتير سابقة!');
       return;

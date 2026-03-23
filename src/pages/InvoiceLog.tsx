@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Invoice, PaymentMethod } from '../types';
-import { getInvoices, getSettings } from '../store';
+import { getInvoices, getSettings, getProducts, saveProduct, getClients, saveClient, deleteInvoiceFromDB } from '../store';
 
 export default function InvoiceLog() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -11,7 +11,10 @@ export default function InvoiceLog() {
   const settings = getSettings();
 
   useEffect(() => {
-    setInvoices(getInvoices());
+    const load = async () => {
+      setInvoices(await getInvoices());
+    };
+    load();
   }, []);
 
   const filtered = invoices.filter(inv => {
@@ -25,6 +28,21 @@ export default function InvoiceLog() {
   const totalProfits = filtered.reduce((s, i) => s + i.profit, 0);
   const totalCash = filtered.reduce((s, i) => s + (i.cashAmount || ((!i.paymentMethod || i.paymentMethod === 'cash') ? i.paid : 0)), 0);
   const totalVisa = filtered.reduce((s, i) => s + (i.visaAmount || (i.paymentMethod === 'visa' ? i.paid : 0)), 0);
+
+  // Top Products from filtered invoices
+  const productStats: Record<string, { qty: number, revenue: number }> = {};
+  filtered.forEach(inv => {
+    inv.items.forEach(item => {
+      if (!productStats[item.name]) productStats[item.name] = { qty: 0, revenue: 0 };
+      productStats[item.name].qty += item.quantity;
+      productStats[item.name].revenue += item.total;
+    });
+  });
+
+  const topProducts = Object.entries(productStats)
+    .sort((a, b) => b[1].qty - a[1].qty)
+    .slice(0, 5)
+    .map(([name, data]) => ({ name, ...data }));
 
   const getPaymentMethodLabel = (method?: PaymentMethod) => {
     switch (method) {
@@ -130,6 +148,35 @@ export default function InvoiceLog() {
     printWindow.document.close();
   };
 
+  const deleteInvoice = async (invId: string) => {
+    if (!confirm(`هل أنت متأكد من حذف الفاتورة ${invId}؟\nسيتم استرجاع المنتجات للمخزون.`)) return;
+    
+    const allInvoices = await getInvoices();
+    const inv = allInvoices.find(i => i.id === invId);
+    if (!inv) return;
+
+    // 1. Restore Stock in Supabase
+    const products = await getProducts();
+    for (const item of inv.items) {
+      const p = products.find(prod => prod.id === item.productId);
+      if (p) await saveProduct({ ...p, quantity: p.quantity + item.quantity });
+    }
+
+    // 2. Handle Debt in Supabase
+    if (inv.remaining > 0 && inv.client !== 'عميل نقدي') {
+      const clients = await getClients();
+      const client = clients.find(c => c.name === inv.client);
+      if (client) {
+        await saveClient({ ...client, debt: Math.max(0, client.debt - inv.remaining) });
+      }
+    }
+    // 3. Remove Invoice from Supabase
+    await deleteInvoiceFromDB(invId);
+    setInvoices(await getInvoices());
+    if (selectedInvoice?.id === invId) setSelectedInvoice(null);
+    alert('تم حذف الفاتورة واسترجاع المخزون بنجاح ✅');
+  };
+
   const printInvoices = () => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
@@ -222,6 +269,27 @@ export default function InvoiceLog() {
         </div>
       </div>
 
+      {/* Top Products Analysis */}
+      {topProducts.length > 0 && (
+        <div className="mb-4 bg-gray-800/30 rounded-2xl p-4 border border-gray-700">
+          <h3 className="text-sky-400 font-bold mb-3 flex items-center gap-2">
+            🔥 الأكثر مبيعاً (لهذا التحديد):
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+            {topProducts.map((p, i) => (
+              <div key={i} className="bg-gray-900 rounded-xl p-2 border border-gray-700 relative overflow-hidden group">
+                <div className="absolute top-0 right-0 bg-sky-600 text-white text-[10px] px-2 py-0.5 rounded-bl-lg font-bold">#{i+1}</div>
+                <p className="text-white text-xs font-bold truncate mb-1 pr-6">{p.name}</p>
+                <div className="flex justify-between items-end">
+                  <div className="text-[10px] text-gray-400">كمية: <span className="text-green-400 font-bold">{p.qty}</span></div>
+                  <div className="text-[10px] text-gray-400">إيراد: <span className="text-yellow-400 font-bold">{p.revenue.toFixed(0)}</span></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="overflow-auto rounded-xl border border-gray-700">
         <table className="w-full text-sm">
           <thead className="bg-gray-800">
@@ -242,7 +310,8 @@ export default function InvoiceLog() {
                   onClick={() => setSelectedInvoice(selectedInvoice?.id === inv.id ? null : inv)}>
                 <td className="p-2 text-center">
                   <div className="flex gap-1 justify-center">
-                    <button onClick={(e) => { e.stopPropagation(); printInvoiceWithQR(inv); }} className="bg-sky-600 text-white px-2 py-1 rounded text-xs" title="طباعة مع QR">🖨️</button>
+                    <button onClick={(e) => { e.stopPropagation(); printInvoiceWithQR(inv); }} className="bg-sky-600 text-white px-2 py-1 rounded text-xs" title="طباعة">🖨️</button>
+                    <button onClick={(e) => { e.stopPropagation(); deleteInvoice(inv.id); }} className="bg-red-600 text-white px-2 py-1 rounded text-xs" title="حذف واسترجاع المخزون">🗑️</button>
                   </div>
                 </td>
                 <td className="p-2 text-center">{inv.cashier}</td>

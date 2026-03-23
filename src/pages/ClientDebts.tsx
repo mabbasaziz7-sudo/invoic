@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Client } from '../types';
-import { getClients, saveClients, getSettings } from '../store';
+import { getClients, saveClient, deleteClient, getSettings } from '../store';
 
 export default function ClientDebts() {
   const [clients, setClients] = useState<Client[]>([]);
@@ -14,7 +14,10 @@ export default function ClientDebts() {
   const settings = getSettings();
 
   useEffect(() => {
-    setClients(getClients());
+    const load = async () => {
+      setClients(await getClients());
+    };
+    load();
   }, []);
 
   const filtered = clients.filter(c => !search || c.name.includes(search) || c.phone.includes(search));
@@ -32,25 +35,21 @@ export default function ClientDebts() {
     setShowAddModal(true);
   };
 
-  const saveClient = () => {
+  const handleSaveClient = async () => {
     if (!form.name) { alert('أدخل اسم العميل'); return; }
-    let updated: Client[];
     if (editClient) {
-      updated = clients.map(c => c.id === editClient.id ? { ...c, ...form } : c);
+      await saveClient({ ...editClient, ...form });
     } else {
-      const newId = clients.length > 0 ? Math.max(...clients.map(c => c.id)) + 1 : 1;
-      updated = [...clients, { id: newId, ...form }];
+      await saveClient(form);
     }
-    saveClients(updated);
-    setClients(updated);
+    setClients(await getClients());
     setShowAddModal(false);
   };
 
-  const deleteClient = (id: number) => {
+  const handleDeleteClient = async (id: number) => {
     if (!confirm('هل أنت متأكد من حذف هذا العميل؟')) return;
-    const updated = clients.filter(c => c.id !== id);
-    saveClients(updated);
-    setClients(updated);
+    await deleteClient(id);
+    setClients(await getClients());
   };
 
   const openPay = (c: Client) => {
@@ -59,16 +58,10 @@ export default function ClientDebts() {
     setShowPayModal(true);
   };
 
-  const makePayment = () => {
+  const makePayment = async () => {
     if (!payClient) return;
-    const updated = clients.map(c => {
-      if (c.id === payClient.id) {
-        return { ...c, debt: Math.max(0, c.debt - paymentAmount) };
-      }
-      return c;
-    });
-    saveClients(updated);
-    setClients(updated);
+    await saveClient({ ...payClient, debt: Math.max(0, payClient.debt - paymentAmount) });
+    setClients(await getClients());
     setShowPayModal(false);
   };
 
@@ -106,7 +99,7 @@ export default function ClientDebts() {
                   <div className="flex gap-1 justify-center">
                     <button onClick={() => openPay(c)} className="bg-green-600 text-white px-2 py-1 rounded text-xs">💵 دفع</button>
                     <button onClick={() => openEdit(c)} className="bg-blue-600 text-white px-2 py-1 rounded text-xs">✏️</button>
-                    <button onClick={() => deleteClient(c.id)} className="bg-red-600 text-white px-2 py-1 rounded text-xs">🗑️</button>
+                    <button onClick={() => handleDeleteClient(c.id)} className="bg-red-600 text-white px-2 py-1 rounded text-xs">🗑️</button>
                   </div>
                 </td>
                 <td className={`p-2 text-center font-bold text-lg ${c.debt > 0 ? 'text-red-400' : 'text-green-400'}`}>
@@ -144,7 +137,7 @@ export default function ClientDebts() {
               </div>
             </div>
             <div className="flex gap-3 mt-4">
-              <button onClick={saveClient} className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-xl font-bold">حفظ</button>
+              <button onClick={() => handleSaveClient()} className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-xl font-bold">حفظ</button>
               <button onClick={() => setShowAddModal(false)} className="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-2 rounded-xl font-bold">إلغاء</button>
             </div>
           </div>

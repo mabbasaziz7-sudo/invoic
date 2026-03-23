@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Invoice, Expense } from '../types';
-import { getInvoices, getExpenses, saveExpenses, getSettings } from '../store';
+import { getInvoices, getExpenses, saveExpense, getSettings } from '../store';
 
 export default function Statistics() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -14,8 +14,11 @@ export default function Statistics() {
   // products available
 
   useEffect(() => {
-    setInvoices(getInvoices());
-    setExpenses(getExpenses());
+    const load = async () => {
+      setInvoices(await getInvoices());
+      setExpenses(await getExpenses());
+    };
+    load();
   }, []);
 
   const today = new Date();
@@ -71,18 +74,17 @@ export default function Statistics() {
     .sort((a, b) => b[1].revenue - a[1].revenue)
     .slice(0, 5);
 
-  const addExpense = () => {
+  const addExpenseItem = async () => {
     if (!expenseForm.description || !expenseForm.amount) { alert('أكمل البيانات'); return; }
     const newExpense: Expense = {
-      id: expenses.length + 1,
-      date: expenseForm.date || new Date().toISOString().slice(0, 16).replace('T', ' '),
+      id: 0, // Supabase assigns ID
+      date: expenseForm.date || new Date().toISOString(),
       category: expenseForm.category,
       description: expenseForm.description,
       amount: expenseForm.amount,
     };
-    const updated = [...expenses, newExpense];
-    saveExpenses(updated);
-    setExpenses(updated);
+    await saveExpense(newExpense);
+    setExpenses(await getExpenses());
     setExpenseForm({ date: '', category: 'فواتير (كهرباء، ماء، غاز)', description: '', amount: 0 });
     setShowExpenseModal(false);
   };
@@ -182,30 +184,71 @@ export default function Statistics() {
         </div>
       </div>
 
-      {/* Best Performance Table */}
-      <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-700 mb-4">
-        <h3 className="text-center text-gray-400 mb-3 font-bold">أفضل أداء:</h3>
-        <div className="overflow-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-800">
-              <tr>
-                <th className="p-2">#</th>
-                <th className="p-2">المنتج</th>
-                <th className="p-2">الكمية</th>
-                <th className="p-2">الإيرادات</th>
-              </tr>
-            </thead>
-            <tbody>
-              {bestProducts.map(([name, data], i) => (
-                <tr key={i} className="border-b border-gray-700">
-                  <td className="p-2 text-center">{i + 1}</td>
-                  <td className="p-2 text-right">{name}</td>
-                  <td className="p-2 text-center">{data.qty}</td>
-                  <td className="p-2 text-center font-bold">{data.revenue.toFixed(2)}</td>
+      {/* Best Performance Table & Top Customers */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-700">
+          <h3 className="text-center text-gray-400 mb-3 font-bold">أفضل أداء للسلع:</h3>
+          <div className="overflow-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-800">
+                <tr>
+                  <th className="p-2">#</th>
+                  <th className="p-2">المنتج</th>
+                  <th className="p-2">الكمية</th>
+                  <th className="p-2">الإيرادات</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {bestProducts.map(([name, data], i) => (
+                  <tr key={i} className="border-b border-gray-700">
+                    <td className="p-2 text-center">{i + 1}</td>
+                    <td className="p-2 text-right">{name}</td>
+                    <td className="p-2 text-center">{data.qty}</td>
+                    <td className="p-2 text-center font-bold">{data.revenue.toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-700">
+          <h3 className="text-center text-gray-400 mb-3 font-bold">أفضل العملاء (إنفاقاً):</h3>
+          <div className="overflow-auto">
+            {(() => {
+              const clientSpending: Record<string, number> = {};
+              filteredInvoices.forEach(inv => {
+                clientSpending[inv.client] = (clientSpending[inv.client] || 0) + inv.total;
+              });
+              const topClients = Object.entries(clientSpending)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 5);
+              
+              return (
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-800">
+                    <tr>
+                      <th className="p-2">#</th>
+                      <th className="p-2">العميل</th>
+                      <th className="p-2">إجمالي المشتريات</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {topClients.map(([name, total], i) => (
+                      <tr key={i} className="border-b border-gray-700">
+                        <td className="p-2 text-center">{i + 1}</td>
+                        <td className="p-2 text-right">{name}</td>
+                        <td className="p-2 text-center font-bold text-sky-400">{total.toLocaleString()} {settings.currency}</td>
+                      </tr>
+                    ))}
+                    {topClients.length === 0 && (
+                      <tr><td colSpan={3} className="p-4 text-center text-gray-500">لا توجد بيانات</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              );
+            })()}
+          </div>
         </div>
       </div>
 
@@ -249,7 +292,7 @@ export default function Statistics() {
               </div>
             </div>
             <div className="flex gap-3 mt-4">
-              <button onClick={addExpense} className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-xl font-bold">إضافة</button>
+            <button onClick={addExpenseItem} className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-xl font-bold">تسجيل المصاريف</button>
               <button onClick={() => setShowExpenseModal(false)} className="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-2 rounded-xl font-bold">إلغاء</button>
             </div>
           </div>
