@@ -145,53 +145,69 @@ export default function DailyClosing() {
         )}
       </div>
 
-      <div className="bg-[#1e293b] rounded-2xl border border-gray-700 overflow-hidden shadow-xl">
-        <div className="bg-gray-800 p-4 border-b border-gray-700 flex justify-between items-center">
-           <h3 className="font-bold text-gray-200">تفاصيل فواتير اليوم</h3>
-           <span className="text-xs text-gray-400">{invoices.length} فاتورة</span>
+      {closing?.status === 'closed' ? (
+        <div className="bg-green-900/20 border border-green-500/50 p-10 rounded-3xl text-center space-y-4">
+          <div className="text-6xl text-green-400">✅</div>
+          <h2 className="text-2xl font-bold text-white">تم تقفيل اليوم بنجاح</h2>
+          <p className="text-gray-400 max-w-md mx-auto">تم ترحيل كافة البيانات المالية لهذا اليوم إلى قاعدة البيانات وإصدار التقرير النهائي.</p>
+          <button 
+            onClick={printZReport}
+            className="bg-green-600 hover:bg-green-700 text-white px-10 py-3 rounded-2xl font-bold transition-all shadow-xl"
+          >
+            🖨️ إعادة طباعة التقرير (Z)
+          </button>
         </div>
-        <div className="overflow-x-auto">
-           <table className="w-full text-right text-sm">
-             <thead className="bg-gray-900/50 text-gray-400">
-               <tr>
-                 <th className="p-3">رقم الفاتورة</th>
-                 <th className="p-3">الوقت</th>
-                 <th className="p-3">العميل</th>
-                 <th className="p-3">طريقة الدفع</th>
-                 <th className="p-3">الإجمالي</th>
-               </tr>
-             </thead>
-             <tbody>
-               {invoices.map(inv => (
-                 <tr key={inv.id} className="border-t border-gray-700/50 text-gray-300">
-                   <td className="p-3 font-mono">{inv.id}</td>
-                   <td className="p-3">{new Date(inv.date).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}</td>
-                   <td className="p-3">{inv.client}</td>
-                   <td className="p-3 text-xs">{inv.paymentMethod}</td>
-                   <td className="p-3 font-bold text-white">{inv.total.toFixed(2)}</td>
-                 </tr>
-               ))}
-               {invoices.length === 0 && <tr><td colSpan={5} className="p-10 text-center text-gray-500 italic">لا توجد مبيعات مسجلة لهذا اليوم حتى الآن</td></tr>}
-             </tbody>
-           </table>
-        </div>
-      </div>
+      ) : (
+        <>
+          <div className="bg-[#1e293b] rounded-2xl border border-gray-700 overflow-hidden shadow-xl">
+            <div className="bg-gray-800 p-4 border-b border-gray-700 flex justify-between items-center">
+               <h3 className="font-bold text-gray-200">تفاصيل فواتير اليوم</h3>
+               <span className="text-xs text-gray-400">{invoices.length} فاتورة</span>
+            </div>
+            <div className="overflow-x-auto">
+               <table className="w-full text-right text-sm">
+                 <thead className="bg-gray-900/50 text-gray-400">
+                   <tr>
+                     <th className="p-3">رقم الفاتورة</th>
+                     <th className="p-3">الوقت</th>
+                     <th className="p-3">العميل</th>
+                     <th className="p-3">طريقة الدفع</th>
+                     <th className="p-3">الإجمالي</th>
+                   </tr>
+                 </thead>
+                 <tbody>
+                   {invoices.map(inv => (
+                     <tr key={inv.id} className="border-t border-gray-700/50 text-gray-300">
+                       <td className="p-3 font-mono">{inv.id}</td>
+                       <td className="p-3">{new Date(inv.date).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}</td>
+                       <td className="p-3">{inv.client}</td>
+                       <td className="p-3 text-xs">{inv.paymentMethod}</td>
+                       <td className="p-3 font-bold text-white">{inv.total.toFixed(2)}</td>
+                     </tr>
+                   ))}
+                   {invoices.length === 0 && <tr><td colSpan={5} className="p-10 text-center text-gray-500 italic">لا توجد مبيعات مسجلة لهذا اليوم حتى الآن</td></tr>}
+                 </tbody>
+               </table>
+            </div>
+          </div>
 
-      <div className="flex gap-4">
-         <button 
-           onClick={handleCloseDay} 
-           disabled={isProcessing || invoices.length === 0}
-           className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-700 text-white font-bold py-4 rounded-2xl shadow-lg transition-all text-xl"
-         >
-           ✅ اعتماد تقفيل اليوم وإصدار التقرير (Z)
-         </button>
-         <button 
-           onClick={printZReport}
-           className="bg-gray-700 hover:bg-gray-600 text-white px-8 py-4 rounded-2xl shadow-lg transition-all"
-         >
-           🖨️ طباعة مسودة التقرير
-         </button>
-      </div>
+          <div className="flex gap-4">
+             <button 
+               onClick={handleCloseDay} 
+               disabled={isProcessing || invoices.length === 0}
+               className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-700 text-white font-bold py-4 rounded-2xl shadow-lg transition-all text-xl"
+             >
+               ✅ اعتماد تقفيل اليوم وإصدار التقرير (Z)
+             </button>
+             <button 
+               onClick={printZReport}
+               className="bg-gray-700 hover:bg-gray-600 text-white px-8 py-4 rounded-2xl shadow-lg transition-all"
+             >
+               🖨️ طباعة مسودة التقرير
+             </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

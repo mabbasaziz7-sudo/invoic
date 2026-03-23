@@ -12,6 +12,10 @@ CREATE TABLE IF NOT EXISTS products (
     expiry_date DATE,
     min_stock INTEGER DEFAULT 5,
     image TEXT,
+    discount_price DECIMAL DEFAULT 0,
+    discount_percent DECIMAL DEFAULT 0,
+    bulk_quantity INTEGER DEFAULT 0,
+    bulk_price DECIMAL DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

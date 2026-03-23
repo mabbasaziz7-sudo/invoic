@@ -60,35 +60,120 @@ export default function Promotions() {
   };
 
   const printSingleCoupon = (c: Coupon) => {
-    const printWindow = window.open('', '_blank');
+    const printWindow = window.open('', '_blank', 'width=450,height=700');
     if (!printWindow) return;
 
+    const qrData = encodeURIComponent(`COUPON:${c.code}|DISC:${c.discountPercent || c.discountAmount}`);
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${qrData}`;
+
     const content = `
-      <html>
+      <html dir="rtl">
         <head>
-          <title>Coupon Print</title>
+          <title>Coupon - ${c.code}</title>
+          <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>
           <style>
-            body { font-family: 'Arial', sans-serif; direction: rtl; text-align: center; padding: 10px; width: 60mm; margin: 0 auto; color: #000; }
-            .header { font-size: 14px; font-weight: bold; border-bottom: 1px dashed #000; padding-bottom: 5px; margin-bottom: 10px; }
-            .name { font-size: 12px; margin-bottom: 5px; color: #333; }
-            .code { font-size: 24px; font-weight: 900; margin: 5px 0; letter-spacing: 2px; }
-            .details { font-size: 11px; margin-bottom: 10px; }
-            .footer { border-top: 1px dashed #000; padding-top: 5px; margin-top: 10px; font-size: 9px; }
-            img { max-width: 100%; height: auto; }
+            @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;900&display=swap');
+            body { 
+              font-family: 'Tajawal', sans-serif; 
+              text-align: center; 
+              padding: 20px; 
+              width: 70mm; 
+              margin: 0 auto; 
+              color: #1e293b;
+              background: #fff;
+            }
+            .coupon-card {
+              border: 2px solid #38bdf8;
+              border-radius: 15px;
+              padding: 15px;
+              position: relative;
+              overflow: hidden;
+            }
+            .header { 
+              font-size: 16px; 
+              font-weight: 900; 
+              color: #0369a1;
+              margin-bottom: 15px;
+              text-transform: uppercase;
+              border-bottom: 2px dashed #e2e8f0;
+              padding-bottom: 10px;
+            }
+            .name { font-size: 13px; color: #64748b; margin-bottom: 5px; font-weight: bold; }
+            .discount {
+              font-size: 32px;
+              font-weight: 900;
+              color: #0ea5e9;
+              margin: 10px 0;
+            }
+            .code-box {
+              background: #f0f9ff;
+              border: 2px solid #bae6fd;
+              padding: 10px;
+              border-radius: 10px;
+              margin: 15px 0;
+            }
+            .code { 
+              font-size: 24px; 
+              font-weight: 900; 
+              letter-spacing: 3px;
+              color: #0369a1;
+            }
+            .qr-section { margin: 15px 0; }
+            .qr-section img { width: 100px; height: 100px; border: 1px solid #e2e8f0; padding: 5px; border-radius: 8px; }
+            .barcode-section { margin: 10px 0; }
+            .barcode-section svg { width: 100%; height: 50px; }
+            .footer { 
+              font-size: 10px; 
+              color: #94a3b8;
+              margin-top: 15px;
+              border-top: 1px solid #f1f5f9;
+              padding-top: 8px;
+            }
+            .expiry { color: #ef4444; font-weight: bold; font-size: 11px; margin-top: 5px; }
           </style>
         </head>
-        <body onload="setTimeout(() => { window.print(); window.close(); }, 500);">
-          <div class="header">${settings.storeName}</div>
-          <div class="name">${c.name || 'كوبون مبيعات'}</div>
-          <div class="code">${c.code}</div>
-          <div class="details">
-            <p>مقدار الخصم: ${c.discountPercent > 0 ? `${c.discountPercent}%` : `${c.discountAmount} ${settings.currency}`}</p>
-            ${c.minOrderValue > 0 ? `<p>الحد الأدنى للفاتورة: ${c.minOrderValue} ${settings.currency}</p>` : ''}
+        <body onload="setTimeout(() => { window.print(); window.close(); }, 800);">
+          <div class="coupon-card">
+            <div class="header">${settings.storeName}</div>
+            <div class="name">${c.name || 'كوبون خصم مميز'}</div>
+            
+            <div class="discount">
+              ${c.discountPercent > 0 ? `${c.discountPercent}% OFF` : `-${c.discountAmount} ${settings.currency}`}
+            </div>
+
+            <div class="code-box">
+              <div class="code">${c.code}</div>
+            </div>
+
+            <div class="barcode-section">
+              <svg id="barcode"></svg>
+            </div>
+
+            <div class="qr-section">
+              <img src="${qrUrl}" alt="QR" />
+            </div>
+
+            ${c.minOrderValue > 0 ? `<div style="font-size:10px;color:#64748b">الحد الأدنى للطلب: ${c.minOrderValue} ${settings.currency}</div>` : ''}
+            
+            <div class="expiry">ينتهي في: ${c.expiryDate || 'صلاحية مفتوحة'}</div>
+
+            <div class="footer">
+              <p>شكراً لثقتكم بنا</p>
+              <p style="font-weight:bold">Powered by Bakhcha Pro POS</p>
+            </div>
           </div>
-          <div class="footer">
-            <p>تاريخ الانتهاء: ${c.expiryDate || 'مفتوح'}</p>
-            <p>نظام Bakhcha Pro POS</p>
-          </div>
+
+          <script>
+            try {
+              JsBarcode("#barcode", "${c.code}", {
+                format: "CODE128",
+                width: 2,
+                height: 40,
+                displayValue: false,
+                margin: 0
+              });
+            } catch(e) { console.error(e); }
+          </script>
         </body>
       </html>
     `;

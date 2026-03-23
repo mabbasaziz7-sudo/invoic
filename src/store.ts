@@ -16,10 +16,10 @@ const mapProductToDB = (p: Partial<Product>) => ({
   expiry_date: p.expiryDate || null,
   min_stock: p.minStock,
   image: p.image,
-  discount_price: p.discountPrice,
-  discount_percent: p.discountPercent,
-  bulk_quantity: p.bulkQuantity,
-  bulk_price: p.bulkPrice,
+  discount_price: p.discountPrice || 0,
+  discount_percent: p.discountPercent || 0,
+  bulk_quantity: p.bulkQuantity || 0,
+  bulk_price: p.bulkPrice || 0,
 });
 
 const mapDBToProduct = (d: any): Product => ({
@@ -33,10 +33,10 @@ const mapDBToProduct = (d: any): Product => ({
   expiryDate: d.expiry_date || '',
   minStock: d.min_stock || 0,
   image: d.image || '',
-  discountPrice: Number(d.discount_price) || 0,
-  discountPercent: Number(d.discount_percent) || 0,
-  bulkQuantity: Number(d.bulk_quantity) || 0,
-  bulkPrice: Number(d.bulk_price) || 0,
+  discountPrice: Number(d.discount_price || 0),
+  discountPercent: Number(d.discount_percent || 0),
+  bulkQuantity: Number(d.bulk_quantity || 0),
+  bulkPrice: Number(d.bulk_price || 0),
 });
 
 export async function getProducts(): Promise<Product[]> {

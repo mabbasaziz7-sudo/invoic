@@ -25,6 +25,7 @@ export default function Products({ currentUser }: ProductsProps) {
   const [form, setForm] = useState({
     name: '', barcode: '', quantity: 0, buyPrice: 0, sellPrice: 0,
     category: 'عام', expiryDate: '', minStock: 5,
+    discountPrice: 0, discountPercent: 0, bulkQuantity: 0, bulkPrice: 0
   });
   const [formImage, setFormImage] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -82,7 +83,10 @@ export default function Products({ currentUser }: ProductsProps) {
   };
 
   const openAdd = () => {
-    setForm({ name: '', barcode: '', quantity: 0, buyPrice: 0, sellPrice: 0, category: 'عام', expiryDate: '', minStock: 5 });
+    setForm({ 
+      name: '', barcode: '', quantity: 0, buyPrice: 0, sellPrice: 0, category: 'عام', expiryDate: '', minStock: 5,
+      discountPrice: 0, discountPercent: 0, bulkQuantity: 0, bulkPrice: 0
+    });
     setFormImage('');
     setEditProduct(null);
     setShowAddModal(true);
@@ -92,6 +96,10 @@ export default function Products({ currentUser }: ProductsProps) {
     setForm({
       name: p.name, barcode: p.barcode, quantity: p.quantity, buyPrice: p.buyPrice,
       sellPrice: p.sellPrice, category: p.category, expiryDate: p.expiryDate || '', minStock: p.minStock,
+      discountPrice: p.discountPrice || 0,
+      discountPercent: p.discountPercent || 0,
+      bulkQuantity: p.bulkQuantity || 0,
+      bulkPrice: p.bulkPrice || 0
     });
     setFormImage(p.image || '');
     setEditProduct(p);
@@ -146,7 +154,6 @@ export default function Products({ currentUser }: ProductsProps) {
   const addCategory = () => {
     if (newCat && !categories.includes(newCat)) {
       const updated = [...categories, newCat];
-      saveCategories(updated);
       setCategories(updated);
       setNewCat('');
     }
@@ -455,9 +462,38 @@ export default function Products({ currentUser }: ProductsProps) {
                 <div>
                   <label className="text-sm text-gray-400 mb-1 block">تاريخ الانتهاء</label>
                   <input type="date" value={form.expiryDate} onChange={(e) => setForm({...form, expiryDate: e.target.value})}
-                    className="w-full bg-gray-800 text-white border border-gray-600 rounded-lg px-3 py-2" />
+                    className="w-full bg-gray-800 text-white border border-gray-600 rounded-lg px-3 py-2 text-sm" />
                 </div>
               </div>
+
+              <div className="bg-blue-900/10 p-4 rounded-2xl border border-blue-500/20 space-y-4">
+                <h4 className="text-xs font-bold text-blue-400 uppercase tracking-wider">💰 عروض الجملة والخصومات</h4>
+                <div className="grid grid-cols-2 gap-3">
+                   <div>
+                     <label className="text-[10px] text-gray-400 mb-1 block">الكمية للجملة</label>
+                     <input type="number" value={form.bulkQuantity} onChange={(e) => setForm({...form, bulkQuantity: Number(e.target.value)})}
+                       className="w-full bg-gray-900 text-white border border-gray-700 rounded-lg px-3 py-2 text-sm" placeholder="مثلاً: 12" />
+                   </div>
+                   <div>
+                     <label className="text-[10px] text-gray-400 mb-1 block">سعر القطعة بالجملة</label>
+                     <input type="number" value={form.bulkPrice} onChange={(e) => setForm({...form, bulkPrice: Number(e.target.value)})}
+                       className="w-full bg-gray-900 text-white border border-gray-700 rounded-lg px-3 py-2 text-sm" />
+                   </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                   <div>
+                     <label className="text-[10px] text-gray-400 mb-1 block">سعر خصم خاص</label>
+                     <input type="number" value={form.discountPrice} onChange={(e) => setForm({...form, discountPrice: Number(e.target.value)})}
+                       className="w-full bg-gray-900 text-white border border-gray-700 rounded-lg px-3 py-2 text-sm" />
+                   </div>
+                   <div>
+                     <label className="text-[10px] text-gray-400 mb-1 block">نسبة خصم (%)</label>
+                     <input type="number" value={form.discountPercent} onChange={(e) => setForm({...form, discountPercent: Number(e.target.value)})}
+                       className="w-full bg-gray-900 text-white border border-gray-700 rounded-lg px-3 py-2 text-sm" />
+                   </div>
+                </div>
+              </div>
+
               <div className="flex gap-2">
                 <input type="text" value={newCat} onChange={(e) => setNewCat(e.target.value)} placeholder="تصنيف جديد..."
                   className="flex-1 bg-gray-800 text-white border border-gray-600 rounded-lg px-3 py-2 text-sm" />

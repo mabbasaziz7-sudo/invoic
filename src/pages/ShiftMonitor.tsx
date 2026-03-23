@@ -12,7 +12,7 @@ export default function ShiftMonitor({ currentUser }: ShiftMonitorProps) {
 
   useEffect(() => {
     load();
-    const interval = setInterval(load, 30000); // Auto-refresh every 30s
+    const interval = setInterval(load, 10000); // 10s
     return () => clearInterval(interval);
   }, []);
 
@@ -53,8 +53,14 @@ export default function ShiftMonitor({ currentUser }: ShiftMonitorProps) {
     <div className="p-4 space-y-6">
       <div className="flex justify-between items-center bg-[#1e293b] p-4 rounded-2xl border border-gray-700">
         <div>
-          <h1 className="text-2xl font-bold text-sky-400 font-arabic">🖥️ مراقبة الكاشيرات المفتوحة</h1>
-          <p className="text-xs text-gray-400 mt-1">متابعة المبيعات والوردية لكل كاشير بشكل مباشر</p>
+          <h1 className="text-2xl font-bold text-sky-400 font-arabic flex items-center gap-3">
+            🖥️ مراقبة الكاشيرات
+            <span className="flex h-3 w-3 relative">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+            </span>
+          </h1>
+          <p className="text-[10px] text-gray-400 mt-1">تحديث تلقائي كل 10 ثوانٍ | آخر تحديث: {new Date().toLocaleTimeString('ar-EG')}</p>
         </div>
         <button 
           onClick={load}
