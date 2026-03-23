@@ -115,7 +115,7 @@ export async function getInvoices(): Promise<Invoice[]> {
 }
 
 export async function saveInvoice(inv: Invoice) {
-  const { error } = await supabase.from('invoices').insert(mapInvoiceToDB(inv));
+  const { error } = await supabase.from('invoices').upsert(mapInvoiceToDB(inv));
   if (error) console.error('Error saving invoice:', error);
 }
 
