@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS products (
     discount_percent DECIMAL DEFAULT 0,
     bulk_quantity INTEGER DEFAULT 0,
     bulk_price DECIMAL DEFAULT 0,
+    unit TEXT DEFAULT 'قطعة',
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
