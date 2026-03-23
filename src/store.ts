@@ -187,9 +187,7 @@ export async function saveReturn(record: ReturnRecord) {
 
 // 6. الإعدادات (Settings) - سنستخدم localStorage كخيار احتياطي ومزامنتها مع Supabase
 export function getSettings() {
-  const data = localStorage.getItem('bakhcha_settings');
-  if (data) return JSON.parse(data);
-  return {
+  const defaults = {
     storeName: 'Bakhcha Pro Supermarket',
     phone: '55-55-55-0555',
     address: 'حي المعارض الشريعة',
@@ -201,6 +199,15 @@ export function getSettings() {
     showBarcodeOnInvoice: true,
     invoiceSize: 'receipt',
   };
+  const data = localStorage.getItem('bakhcha_settings');
+  if (data) {
+    try {
+      return { ...defaults, ...JSON.parse(data) };
+    } catch {
+      return defaults;
+    }
+  }
+  return defaults;
 }
 
 export function saveSettings(settings: any) {

@@ -16,7 +16,7 @@ export default function POS({ currentUser }: POSProps) {
   const [clients, setClients] = useState<Client[]>([]);
   const [selectedClient, setSelectedClient] = useState('عميل نقدي');
   const [discount, setDiscount] = useState(0);
-  const [tax, setTax] = useState(17);
+  const [tax, setTax] = useState(() => getSettings().defaultTax ?? 17);
   const [paid, setPaid] = useState(0);
   const [invoiceId, setInvoiceId] = useState('');
   const [searchProduct, setSearchProduct] = useState('');
@@ -109,7 +109,8 @@ export default function POS({ currentUser }: POSProps) {
     };
     loadData();
     generateInvoiceId();
-    setTax(settings.defaultTax || 17);
+    const currentSettings = getSettings();
+    setTax(currentSettings.defaultTax ?? 17);
     
     // Auto-fullscreen logic
     const handleEsc = (e: KeyboardEvent) => {
