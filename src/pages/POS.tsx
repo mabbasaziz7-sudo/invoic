@@ -238,42 +238,48 @@ export default function POS({ currentUser }: POSProps) {
       visaAmount: paymentMethod === 'mixed' ? visaAmount : paymentMethod === 'visa' ? actualPaid : 0,
     };
 
-    // 1. Save INVOICE to Supabase
-    await saveInvoice(invoice);
+    try {
+      // 1. Save INVOICE to Supabase
+      await saveInvoice(invoice);
 
-    // 2. Handle Client Debt in Supabase
-    if (actualPaid < total && selectedClient !== 'عميل نقدي') {
-      const debt = total - actualPaid;
-      const client = clients.find(c => c.name === selectedClient);
-      if (client) {
-        await saveClient({ ...client, debt: client.debt + debt });
-        setClients(await getClients());
+      // 2. Handle Client Debt in Supabase
+      if (actualPaid < total && selectedClient !== 'عميل نقدي') {
+        const debt = total - actualPaid;
+        const client = clients.find(c => c.name === selectedClient);
+        if (client) {
+          await saveClient({ ...client, debt: client.debt + debt });
+          setClients(await getClients());
+        }
       }
-    }
 
-    // 3. Update PRODUCT STOCK in Supabase
-    for (const item of cart) {
-      const p = products.find(prod => prod.id === item.product.id);
-      if (p) {
-        await saveProduct({ ...p, quantity: p.quantity - item.quantity });
+      // 3. Update PRODUCT STOCK in Supabase
+      for (const item of cart) {
+        const p = products.find(prod => prod.id === item.product.id);
+        if (p) {
+          await saveProduct({ ...p, quantity: p.quantity - item.quantity });
+        }
       }
-    }
-    setProducts(await getProducts());
+      setProducts(await getProducts());
 
-    // Auto print if enabled
-    if (autoPrint) {
-      printInvoiceWithQR(invoice);
-    }
+      // Auto print if enabled
+      if (autoPrint) {
+        printInvoiceWithQR(invoice);
+      }
 
-    setCart([]);
-    setDiscount(0);
-    setPaid(0);
-    setCashAmount(0);
-    setVisaAmount(0);
-    setPaymentMethod('cash');
-    setShowPaymentModal(false);
-    generateInvoiceId();
-    saveCartDisplay({ items: [], total: 0, storeName: settings.storeName });
+      setCart([]);
+      setDiscount(0);
+      setPaid(0);
+      setCashAmount(0);
+      setVisaAmount(0);
+      setPaymentMethod('cash');
+      setShowPaymentModal(false);
+      generateInvoiceId();
+      saveCartDisplay({ items: [], total: 0, storeName: settings.storeName });
+      alert('تمت عملية البيع بنجاح! ✅');
+    } catch (err) {
+      console.error('Sale confirmation failed:', err);
+      alert('فشل إتمام العملية: ' + (err as any).message);
+    }
   };
 
   const cancelSale = () => {
