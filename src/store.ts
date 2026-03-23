@@ -5,28 +5,48 @@ import { supabase } from './lib/supabase';
 // (No global helpers currently needed)
 
 // 1. المنتجات (Products)
+const mapProductToDB = (p: Partial<Product>) => ({
+  name: p.name,
+  barcode: p.barcode,
+  quantity: p.quantity,
+  buy_price: p.buyPrice,
+  sell_price: p.sellPrice,
+  category: p.category,
+  expiry_date: p.expiryDate,
+  min_stock: p.minStock,
+  image: p.image,
+});
+
+const mapDBToProduct = (d: any): Product => ({
+  id: d.id,
+  name: d.name,
+  barcode: d.barcode || '',
+  quantity: d.quantity || 0,
+  buyPrice: Number(d.buy_price) || 0,
+  sellPrice: Number(d.sell_price) || 0,
+  category: d.category || 'عام',
+  expiryDate: d.expiry_date || '',
+  minStock: d.min_stock || 0,
+  image: d.image || '',
+});
+
 export async function getProducts(): Promise<Product[]> {
-  const { data, error } = await supabase
-    .from('products')
-    .select('*')
-    .order('id', { ascending: true });
-  if (error) { console.error('Error fetching products:', error); return []; }
-  return data as Product[];
+  const { data, error } = await supabase.from('products').select('*').order('id');
+  if (error) return [];
+  return (data || []).map(mapDBToProduct);
 }
 
 export async function saveProduct(product: Partial<Product>) {
+  const dbData = mapProductToDB(product);
   if (product.id) {
-    const { error } = await supabase.from('products').update(product).eq('id', product.id);
-    if (error) console.error('Error updating product:', error);
+    await supabase.from('products').update(dbData).eq('id', product.id);
   } else {
-    const { error } = await supabase.from('products').insert(product);
-    if (error) console.error('Error inserting product:', error);
+    await supabase.from('products').insert(dbData);
   }
 }
 
 export async function deleteProduct(id: number) {
-  const { error } = await supabase.from('products').delete().eq('id', id);
-  if (error) console.error('Error deleting product:', error);
+  await supabase.from('products').delete().eq('id', id);
 }
 
 // 2. العملاء (Clients)
@@ -49,17 +69,53 @@ export async function deleteClient(id: number) {
 }
 
 // 3. الفواتير (Invoices)
+const mapInvoiceToDB = (inv: Partial<Invoice>) => ({
+  id: inv.id,
+  date: inv.date,
+  client: inv.client,
+  items: inv.items,
+  subtotal: inv.subtotal,
+  discount: inv.discount,
+  tax: inv.tax,
+  total: inv.total,
+  paid: inv.paid,
+  remaining: inv.remaining,
+  cashier: inv.cashier,
+  profit: inv.profit,
+  payment_method: inv.paymentMethod,
+  cash_amount: inv.cashAmount,
+  visa_amount: inv.visaAmount,
+});
+
+const mapDBToInvoice = (d: any): Invoice => ({
+  id: d.id,
+  date: d.date,
+  client: d.client,
+  items: d.items,
+  subtotal: Number(d.subtotal),
+  discount: Number(d.discount),
+  tax: Number(d.tax),
+  total: Number(d.total),
+  paid: Number(d.paid),
+  remaining: Number(d.remaining),
+  cashier: d.cashier,
+  profit: Number(d.profit),
+  paymentMethod: d.payment_method,
+  cashAmount: Number(d.cash_amount),
+  visaAmount: Number(d.visa_amount),
+});
+
 export async function getInvoices(): Promise<Invoice[]> {
   const { data, error } = await supabase
     .from('invoices')
     .select('*')
     .order('created_at', { ascending: false });
   if (error) return [];
-  return data as Invoice[];
+  return (data || []).map(mapDBToInvoice);
 }
 
-export async function saveInvoice(invoice: Invoice) {
-  const { error } = await supabase.from('invoices').insert(invoice);
+export async function saveInvoice(inv: Invoice) {
+  const { error } = await supabase.from('invoices').insert(mapInvoiceToDB(inv));
   if (error) console.error('Error saving invoice:', error);
 }
 
@@ -80,14 +136,40 @@ export async function saveExpense(expense: Expense) {
 }
 
 // 5. المرتجعات (Returns)
+const mapReturnToDB = (ret: Partial<ReturnRecord>) => ({
+  id: ret.id,
+  invoice_id: ret.invoiceId,
+  date: ret.date,
+  items: ret.items,
+  total: ret.total,
+  type: ret.type,
+  exchange_items: ret.exchangeItems,
+  refund_amount: ret.refundAmount,
+  client: ret.client,
+  cashier: ret.cashier,
+});
+
+const mapDBToReturn = (d: any): ReturnRecord => ({
+  id: d.id,
+  invoiceId: d.invoice_id,
+  date: d.date,
+  items: d.items,
+  total: Number(d.total),
+  type: d.type,
+  exchangeItems: d.exchange_items,
+  refundAmount: Number(d.refund_amount),
+  client: d.client,
+  cashier: d.cashier,
+});
+
 export async function getReturns(): Promise<ReturnRecord[]> {
-  const { data, error } = await supabase.from('returns').select('*').order('date', { ascending: false });
+  const { data, error } = await supabase.from('returns').select('*').order('created_at', { ascending: false });
   if (error) return [];
-  return data as ReturnRecord[];
+  return (data || []).map(mapDBToReturn);
 }
 
 export async function saveReturn(record: ReturnRecord) {
-  await supabase.from('returns').insert(record);
+  await supabase.from('returns').insert(mapReturnToDB(record));
 }
 
 // 6. الإعدادات (Settings) - سنستخدم localStorage كخيار احتياطي ومزامنتها مع Supabase
@@ -113,17 +195,41 @@ export function saveSettings(settings: any) {
 }
 
 // 7. المستخدمون (Users)
+const mapUserToDB = (u: Partial<User>) => ({
+  username: u.username,
+  password: u.password,
+  role: u.role,
+  full_name: u.fullName,
+  phone: u.phone,
+  active: u.active,
+  permissions: u.permissions,
+  last_login: u.lastLogin,
+});
+
+const mapDBToUser = (d: any): User => ({
+  id: d.id,
+  username: d.username,
+  password: d.password,
+  role: d.role,
+  fullName: d.full_name,
+  phone: d.phone,
+  active: d.active,
+  permissions: d.permissions,
+  lastLogin: d.last_login,
+});
+
 export async function getUsers(): Promise<User[]> {
   const { data, error } = await supabase.from('users').select('*').order('id');
   if (error) return [];
-  return data as User[];
+  return (data || []).map(mapDBToUser);
 }
 
 export async function saveUser(user: Partial<User>) {
+  const dbData = mapUserToDB(user);
   if (user.id) {
-    await supabase.from('users').update(user).eq('id', user.id);
+    await supabase.from('users').update(dbData).eq('id', user.id);
   } else {
-    await supabase.from('users').insert(user);
+    await supabase.from('users').insert(dbData);
   }
 }
 
@@ -160,7 +266,7 @@ export async function loginUser(username: string, password: string): Promise<Use
     .single();
     
   if (error || !data) return null;
-  const user = data as User;
+  const user = mapDBToUser(data);
   localStorage.setItem('bakhcha_current_user', JSON.stringify(user));
   return user;
 }
