@@ -133,10 +133,21 @@ export async function deleteUserFromDB(id: number) {
 
 // 8. الأصناف (Categories)
 export async function getCategories(): Promise<string[]> {
-  const { data, error } = await supabase.from('products').select('category');
-  if (error) return ['الكل', 'عام'];
-  const cats = Array.from(new Set(data.map(d => d.category)));
+  const { data, error } = await supabase.from('categories').select('name').order('name');
+  if (error) {
+    const saved = localStorage.getItem('bakhcha_categories');
+    return saved ? JSON.parse(saved) : ['الكل', 'عام'];
+  }
+  const cats = data.map(d => d.name);
   return ['الكل', ...cats];
+}
+
+export async function saveCategories(categories: string[]) {
+  localStorage.setItem('bakhcha_categories', JSON.stringify(categories));
+  // Optional: Also sync to Supabase categories table
+  const catsToInsert = categories.filter(c => c !== 'الكل').map(c => ({ name: c }));
+  await supabase.from('categories').delete().not('name', 'eq', 'placeholder'); // Clear old
+  await supabase.from('categories').insert(catsToInsert);
 }
 
 // 9. Auth functions (سنعتمد على Supabase Auth أو جدول المستخدمين البسيط)

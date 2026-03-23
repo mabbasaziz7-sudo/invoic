@@ -9,7 +9,10 @@ export default function Settings() {
   const logoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    setCategoriesState(getCategories());
+    const load = async () => {
+      setCategoriesState(await getCategories());
+    };
+    load();
   }, []);
 
   const handleSave = () => {
@@ -18,19 +21,19 @@ export default function Settings() {
     setTimeout(() => setSaved(false), 2000);
   };
 
-  const addCategory = () => {
+  const addCategory = async () => {
     if (newCat && !categories.includes(newCat)) {
       const updated = [...categories, newCat];
-      saveCategories(updated);
+      await saveCategories(updated);
       setCategoriesState(updated);
       setNewCat('');
     }
   };
 
-  const removeCategory = (cat: string) => {
+  const removeCategory = async (cat: string) => {
     if (cat === 'الكل') return;
     const updated = categories.filter(c => c !== cat);
-    saveCategories(updated);
+    await saveCategories(updated);
     setCategoriesState(updated);
   };
 
