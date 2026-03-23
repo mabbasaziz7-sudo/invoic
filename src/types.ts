@@ -9,6 +9,10 @@ export interface Product {
   expiryDate: string | null;
   minStock: number;
   image?: string;
+  discountPrice?: number;
+  discountPercent?: number;
+  bulkQuantity?: number;
+  bulkPrice?: number;
 }
 
 export interface CartItem {

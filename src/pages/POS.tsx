@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { Product, CartItem, Invoice, Client, PaymentMethod, User } from '../types';
-import { getProducts, saveProduct, getClients, saveClient, getInvoices, saveInvoice, getSettings, getCategories, saveCartDisplay, getUserPermissions } from '../store';
+import { Product, CartItem, Invoice, Client, PaymentMethod, User, Coupon } from '../types';
+import { getProducts, saveProduct, getClients, saveClient, getInvoices, saveInvoice, getSettings, getCategories, saveCartDisplay, getUserPermissions, getCoupons } from '../store';
 
 interface POSProps {
   currentUser?: User | null;
@@ -20,6 +20,9 @@ export default function POS({ currentUser }: POSProps) {
   const [paid, setPaid] = useState(0);
   const [invoiceId, setInvoiceId] = useState('');
   const [searchProduct, setSearchProduct] = useState('');
+  const [couponCode, setCouponCode] = useState('');
+  const [allCoupons, setAllCoupons] = useState<Coupon[]>([]);
+  const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
 
   // Payment method
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
@@ -76,6 +79,7 @@ export default function POS({ currentUser }: POSProps) {
       setProducts(await getProducts());
       setCategories(await getCategories());
       setClients(await getClients());
+      setAllCoupons(await getCoupons());
       generateInvoiceId();
       setTax(settings.defaultTax || 17);
     };
@@ -169,10 +173,47 @@ export default function POS({ currentUser }: POSProps) {
     }
   };
 
-  const subtotal = cart.reduce((sum, item) => sum + item.product.sellPrice * item.quantity, 0);
-  const discountAmount = subtotal * (discount / 100);
-  const taxAmount = (subtotal - discountAmount) * (tax / 100);
-  const total = subtotal - discountAmount + taxAmount;
+  const subtotal = cart.reduce((sum, item) => {
+    let price = item.product.sellPrice;
+    
+    // 1. Check Bulk Pricing
+    if ((item.product.bulkQuantity || 0) > 0 && item.quantity >= (item.product.bulkQuantity || 0)) {
+       price = item.product.bulkPrice || price;
+    } 
+    // 2. Check Individual Discount (if no bulk price applied or lower)
+    else if ((item.product.discountPrice || 0) > 0) {
+       price = Math.min(price, item.product.discountPrice || price);
+    } else if ((item.product.discountPercent || 0) > 0) {
+       price = price * (1 - (item.product.discountPercent || 0) / 100);
+    }
+    
+    return sum + price * item.quantity;
+  }, 0);
+
+  const applyCoupon = () => {
+    const coupon = allCoupons.find(c => c.code === couponCode.trim().toUpperCase() && c.active);
+    if (!coupon) {
+      alert('الكوبون غير صحيح أو منتهي!');
+      return;
+    }
+    if (subtotal < coupon.minOrderValue) {
+      alert(`الحد الأدنى لاستخدام هذا الكوبون هو ${coupon.minOrderValue} ${settings.currency}`);
+      return;
+    }
+    setAppliedCoupon(coupon);
+    setCouponCode('');
+    alert(`تم تطبيق الكوبون: خصم ${coupon.discountPercent > 0 ? `${coupon.discountPercent}%` : `${coupon.discountAmount} ${settings.currency}`}`);
+  };
+
+  const getCouponDiscount = () => {
+    if (!appliedCoupon) return 0;
+    if (appliedCoupon.discountPercent > 0) return subtotal * (appliedCoupon.discountPercent / 100);
+    return appliedCoupon.discountAmount;
+  };
+
+  const finalDiscountAmount = (subtotal * (discount / 100)) + getCouponDiscount();
+  const taxAmount = (subtotal - finalDiscountAmount) * (tax / 100);
+  const total = subtotal - finalDiscountAmount + taxAmount;
   const totalPaid = paymentMethod === 'mixed' ? cashAmount + visaAmount : paid;
   const remaining = totalPaid - total;
 
@@ -755,11 +796,35 @@ export default function POS({ currentUser }: POSProps) {
             <span className="text-xs text-gray-400">🖨️ طباعة الفاتورة تلقائياً عند الدفع</span>
           </label>
 
-          <div className="flex gap-1.5 lg:gap-2">
-            <button onClick={openPaymentModal} className="flex-1 bg-green-600 hover:bg-green-700 text-white py-1.5 lg:py-2 rounded-lg font-bold text-xs lg:text-sm transition-all shadow-lg shadow-green-900/50">
+          {/* Coupon Input */}
+          <div className="bg-[#0b1526] p-2 rounded-xl border border-gray-700 mb-3">
+             <div className="flex gap-1.5">
+                <input 
+                  type="text" 
+                  value={couponCode}
+                  onChange={e => setCouponCode(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && applyCoupon()}
+                  placeholder="🎟️ رمز الكوبون..."
+                  className="flex-1 bg-gray-900 text-white border border-gray-700 rounded-lg px-3 py-1.5 text-xs focus:border-sky-500 outline-none"
+                />
+                <button 
+                  onClick={applyCoupon}
+                  className="bg-sky-600 hover:bg-sky-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+                >تطبيق</button>
+             </div>
+             {appliedCoupon && (
+                <div className="mt-2 flex justify-between items-center bg-sky-900/20 p-2 rounded-lg border border-sky-500/30">
+                   <span className="text-sky-400 text-[10px] font-bold">✅ تطبيق {appliedCoupon.code}</span>
+                   <button onClick={() => setAppliedCoupon(null)} className="text-red-400 text-[10px] hover:underline">إلغاء</button>
+                </div>
+             )}
+          </div>
+
+          <div className="flex gap-1.5 lg:gap-2 mb-3">
+            <button onClick={openPaymentModal} className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 lg:py-3 rounded-xl font-bold text-xs lg:text-base transition-all shadow-lg shadow-green-900/50">
               ✅ تأكيد ودفع
             </button>
-            <button onClick={cancelSale} className="flex-1 bg-orange-600 hover:bg-orange-700 text-white py-1.5 lg:py-2 rounded-lg font-bold text-xs lg:text-sm transition-all">
+            <button onClick={cancelSale} className="flex-1 bg-orange-600 hover:bg-orange-700 text-white py-2 lg:py-3 rounded-xl font-bold text-xs lg:text-base transition-all text-center">
               ❌ إلغاء
             </button>
           </div>
@@ -885,9 +950,25 @@ export default function POS({ currentUser }: POSProps) {
               </div>
               <div className="p-2">
                 <p className="text-white text-xs font-bold text-center truncate">{product.name}</p>
-                <div className="flex justify-between items-center mt-1">
-                  <span className="text-green-400 font-bold text-xs">{product.sellPrice}</span>
-                  <span className={`text-xs ${product.quantity <= product.minStock ? 'text-red-400 font-bold' : 'text-gray-400'}`}>{product.quantity}</span>
+                <div className="flex flex-col items-center mt-1">
+                  <div className="flex items-center gap-1">
+                    {(product.discountPrice || 0) > 0 || (product.discountPercent || 0) > 0 ? (
+                      <>
+                        <span className="text-green-400 font-bold text-xs">
+                          {product.discountPrice || (product.sellPrice * (1 - (product.discountPercent || 0) / 100)).toFixed(2)}
+                        </span>
+                        <span className="text-gray-500 text-[10px] line-through">{product.sellPrice}</span>
+                      </>
+                    ) : (
+                      <span className="text-green-400 font-bold text-xs">{product.sellPrice}</span>
+                    )}
+                  </div>
+                  <div className="flex justify-between w-full mt-1">
+                    <span className={`text-[10px] ${product.quantity <= product.minStock ? 'text-red-400 font-bold' : 'text-gray-400'}`}>مخزون: {product.quantity}</span>
+                    {(product.bulkQuantity || 0) > 0 && (
+                      <span className="bg-blue-900/40 text-blue-300 text-[8px] px-1 rounded border border-blue-500/30">عرض جمله</span>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

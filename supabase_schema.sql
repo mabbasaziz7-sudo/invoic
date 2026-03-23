@@ -147,6 +147,21 @@ CREATE TABLE IF NOT EXISTS coupons (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- سياسات الوصول للجداول الجديدة
+DO $$ BEGIN
+    ALTER TABLE damaged_items ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE coupons ENABLE ROW LEVEL SECURITY;
+    CREATE POLICY "Public access" ON damaged_items FOR ALL USING (true) WITH CHECK (true);
+    CREATE POLICY "Public access" ON coupons FOR ALL USING (true) WITH CHECK (true);
+EXCEPTION WHEN OTHERS THEN NULL; END $$;
+
+-- تحديث جدول المنتجات لدعم الخصومات والعروض
+ALTER TABLE products 
+ADD COLUMN IF NOT EXISTS discount_price DECIMAL DEFAULT 0,
+ADD COLUMN IF NOT EXISTS discount_percent DECIMAL DEFAULT 0,
+ADD COLUMN IF NOT EXISTS bulk_quantity INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS bulk_price DECIMAL DEFAULT 0;
+
 -- إضافة مدير افتراضي (اختياري)
 INSERT INTO users (username, password, role, full_name, active) 
 VALUES ('admin', 'admin123', 'مدير', 'مدير النظام', TRUE)
