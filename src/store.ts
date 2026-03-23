@@ -1,4 +1,4 @@
-import { Product, Client, Invoice, Expense, User, ReturnRecord, UserPermissions, defaultPermissions } from './types';
+import { Product, Client, Invoice, Expense, User, ReturnRecord, UserPermissions, defaultPermissions, DamagedItem, Coupon } from './types';
 import { supabase } from './lib/supabase';
 
 // --- مساعدات (Helpers) ---
@@ -298,4 +298,67 @@ export function getCartDisplay() {
   const data = localStorage.getItem('bakhcha_cart_display');
   if (data) return JSON.parse(data);
   return { items: [], total: 0, storeName: 'Bakhcha Pro' };
+}
+// 10. المنتجات التالفة (Damaged Items)
+const mapDamagedToDB = (d: DamagedItem) => ({
+  product_id: d.productId,
+  product_name: d.productName,
+  quantity: d.quantity,
+  reason: d.reason,
+  date: d.date,
+  return_id: d.returnId
+});
+
+export async function getDamagedItems(): Promise<DamagedItem[]> {
+  const { data, error } = await supabase.from('damaged_items').select('*').order('date', { ascending: false });
+  if (error) return [];
+  return data.map(d => ({
+    id: d.id,
+    productId: d.product_id,
+    productName: d.product_name,
+    quantity: d.quantity,
+    reason: d.reason,
+    date: d.date,
+    returnId: d.return_id
+  }));
+}
+
+export async function saveDamagedItem(item: DamagedItem) {
+  await supabase.from('damaged_items').insert(mapDamagedToDB(item));
+}
+
+// 11. الكوبونات والعروض (Coupons)
+const mapCouponToDB = (c: Partial<Coupon>) => ({
+  code: c.code,
+  discount_percent: c.discountPercent,
+  discount_amount: c.discountAmount,
+  min_order_value: c.minOrderValue,
+  expiry_date: c.expiryDate || null,
+  active: c.active
+});
+
+export async function getCoupons(): Promise<Coupon[]> {
+  const { data, error } = await supabase.from('coupons').select('*').order('created_at', { ascending: false });
+  if (error) return [];
+  return data.map(d => ({
+    id: d.id,
+    code: d.code,
+    discountPercent: Number(d.discount_percent),
+    discountAmount: Number(d.discount_amount),
+    minOrderValue: Number(d.min_order_value),
+    expiryDate: d.expiry_date || '',
+    active: d.active
+  }));
+}
+
+export async function saveCoupon(coupon: Partial<Coupon>) {
+  if (coupon.id) {
+    await supabase.from('coupons').update(mapCouponToDB(coupon)).eq('id', coupon.id);
+  } else {
+    await supabase.from('coupons').insert(mapCouponToDB(coupon));
+  }
+}
+
+export async function deleteCouponFromDB(id: number) {
+  await supabase.from('coupons').delete().eq('id', id);
 }

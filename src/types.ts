@@ -136,4 +136,24 @@ export const defaultPermissions: Record<string, UserPermissions> = {
   },
 };
 
-export type PageType = 'pos' | 'products' | 'users' | 'inventory' | 'statistics' | 'debts' | 'invoices' | 'settings' | 'returns' | 'customer-display';
+export interface DamagedItem {
+  id?: number;
+  productId: number;
+  productName: string;
+  quantity: number;
+  reason: string;
+  date: string;
+  returnId?: string;
+}
+
+export interface Coupon {
+  id?: number;
+  code: string;
+  discountPercent: number;
+  discountAmount: number;
+  minOrderValue: number;
+  expiryDate: string | null;
+  active: boolean;
+}
+
+export type PageType = 'pos' | 'products' | 'users' | 'inventory' | 'statistics' | 'debts' | 'invoices' | 'settings' | 'returns' | 'customer-display' | 'active-promotions';

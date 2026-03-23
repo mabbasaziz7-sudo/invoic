@@ -124,6 +124,29 @@ BEGIN
     CREATE POLICY "Public access" ON categories FOR ALL USING (true) WITH CHECK (true);
 END $$;
 
+-- جدول المنتجات التالفة التي لا تُرد للمخزون
+CREATE TABLE IF NOT EXISTS damaged_items (
+    id SERIAL PRIMARY KEY,
+    product_id INTEGER REFERENCES products(id),
+    product_name TEXT,
+    quantity INTEGER,
+    reason TEXT,
+    date DATE DEFAULT NOW(),
+    return_id TEXT
+);
+
+-- جدول الكوبونات والعروض
+CREATE TABLE IF NOT EXISTS coupons (
+    id SERIAL PRIMARY KEY,
+    code TEXT UNIQUE NOT NULL,
+    discount_percent DECIMAL DEFAULT 0,
+    discount_amount DECIMAL DEFAULT 0,
+    min_order_value DECIMAL DEFAULT 0,
+    expiry_date DATE,
+    active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- إضافة مدير افتراضي (اختياري)
 INSERT INTO users (username, password, role, full_name, active) 
 VALUES ('admin', 'admin123', 'مدير', 'مدير النظام', TRUE)

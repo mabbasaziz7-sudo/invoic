@@ -14,6 +14,7 @@ import ClientDebts from './pages/ClientDebts';
 import Settings from './pages/Settings';
 import Returns from './pages/Returns';
 import CustomerDisplay from './pages/CustomerDisplay';
+import Promotions from './pages/Promotions';
 
 function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -76,6 +77,7 @@ function App() {
       'returns': 'returns',
       'settings': 'settings',
       'customer-display': 'customerDisplay',
+      'active-promotions': 'statistics',
     };
     const permKey = pagePermMap[page];
     if (permKey && !perms[permKey]) {
@@ -128,6 +130,7 @@ function App() {
       case 'debts': return <ClientDebts />;
       case 'settings': return <Settings />;
       case 'returns': return <Returns />;
+      case 'active-promotions': return <Promotions />;
       default: return <POS currentUser={currentUser} />;
     }
   };
