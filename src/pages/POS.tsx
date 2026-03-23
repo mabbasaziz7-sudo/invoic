@@ -894,11 +894,10 @@ export default function POS({ currentUser }: POSProps) {
             <div className="flex items-center gap-1.5 flex-1">
               <button onClick={() => setShowAddClientModal(true)} className="bg-green-600 hover:bg-green-700 text-white w-6 h-6 rounded text-xs font-bold">+</button>
               <select value={selectedClient} onChange={(e) => { setSelectedClient(e.target.value); setUsePoints(false); }} className="flex-1 bg-gray-800 text-white border border-gray-700 rounded px-2 py-0.5 text-[10px] lg:text-xs">
+                <option value="عميل نقدي">💵 عميل نقدي</option>
                 {clients.map(c => (
                   <option key={c.id} value={c.name}>
-                    {c.name} 
-                    {c.points > 0 ? ` [🌟 ${c.points}]` : ''}
-                    {c.debt > 0 ? ` (💸 ${c.debt}دج)` : ''}
+                    👤 {c.name}{c.points > 0 ? ` | 🌟 ${c.points} نقطة` : ''}{c.debt > 0 ? ` | 💸 ${c.debt}دج` : ''}
                   </option>
                 ))}
               </select>
