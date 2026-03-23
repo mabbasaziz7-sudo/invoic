@@ -20,6 +20,7 @@ const mapProductToDB = (p: Partial<Product>) => ({
   discount_percent: p.discountPercent || 0,
   bulk_quantity: p.bulkQuantity || 0,
   bulk_price: p.bulkPrice || 0,
+  unit: p.unit || 'قطعة',
 });
 
 const mapDBToProduct = (d: any): Product => ({
@@ -37,6 +38,7 @@ const mapDBToProduct = (d: any): Product => ({
   discountPercent: Number(d.discount_percent || 0),
   bulkQuantity: Number(d.bulk_quantity || 0),
   bulkPrice: Number(d.bulk_price || 0),
+  unit: d.unit || 'قطعة',
 });
 
 export async function getProducts(): Promise<Product[]> {

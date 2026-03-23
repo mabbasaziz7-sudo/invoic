@@ -25,7 +25,8 @@ export default function Products({ currentUser }: ProductsProps) {
   const [form, setForm] = useState({
     name: '', barcode: '', quantity: 0, buyPrice: 0, sellPrice: 0,
     category: 'عام', expiryDate: '', minStock: 5,
-    discountPrice: 0, discountPercent: 0, bulkQuantity: 0, bulkPrice: 0
+    discountPrice: 0, discountPercent: 0, bulkQuantity: 0, bulkPrice: 0,
+    unit: 'قطعة'
   });
   const [formImage, setFormImage] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -85,7 +86,7 @@ export default function Products({ currentUser }: ProductsProps) {
   const openAdd = () => {
     setForm({ 
       name: '', barcode: '', quantity: 0, buyPrice: 0, sellPrice: 0, category: 'عام', expiryDate: '', minStock: 5,
-      discountPrice: 0, discountPercent: 0, bulkQuantity: 0, bulkPrice: 0
+      discountPrice: 0, discountPercent: 0, bulkQuantity: 0, bulkPrice: 0, unit: 'قطعة'
     });
     setFormImage('');
     setEditProduct(null);
@@ -99,7 +100,8 @@ export default function Products({ currentUser }: ProductsProps) {
       discountPrice: p.discountPrice || 0,
       discountPercent: p.discountPercent || 0,
       bulkQuantity: p.bulkQuantity || 0,
-      bulkPrice: p.bulkPrice || 0
+      bulkPrice: p.bulkPrice || 0,
+      unit: p.unit || 'قطعة'
     });
     setFormImage(p.image || '');
     setEditProduct(p);
@@ -296,6 +298,7 @@ export default function Products({ currentUser }: ProductsProps) {
               <th className="p-2">تاريخ الانتهاء</th>
               <th className="p-2">سعر البيع</th>
               <th className="p-2">الكمية</th>
+              <th className="p-2">الوحدة</th>
               <th className="p-2">الباركود</th>
               <th className="p-2">الاسم</th>
               <th className="p-2">ID</th>
@@ -333,6 +336,7 @@ export default function Products({ currentUser }: ProductsProps) {
                 <td className="p-2 text-center text-xs">{p.expiryDate || '-'}</td>
                 <td className="p-2 text-center">{p.sellPrice}</td>
                 <td className="p-2 text-center">{p.quantity}</td>
+                <td className="p-2 text-center text-xs text-gray-400">{p.unit || 'قطعة'}</td>
                 <td className="p-2 text-center text-xs">{p.barcode ? (p.barcode.length > 10 ? '...' + p.barcode.slice(-7) : p.barcode) : ''}</td>
                 <td className="p-2 text-right font-bold">{p.name}</td>
                 <td className="p-2 text-center">{p.id}</td>
@@ -436,8 +440,21 @@ export default function Products({ currentUser }: ProductsProps) {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-sm text-gray-400 mb-1 block">الكمية</label>
-                  <input type="number" value={form.quantity} onChange={(e) => setForm({...form, quantity: Number(e.target.value)})}
-                    className="w-full bg-gray-800 text-white border border-gray-600 rounded-lg px-3 py-2" />
+                  <div className="flex gap-2">
+                    <input type="number" value={form.quantity} onChange={(e) => setForm({...form, quantity: Number(e.target.value)})}
+                      className="flex-1 bg-gray-800 text-white border border-gray-600 rounded-lg px-3 py-2" />
+                    <select value={form.unit} onChange={(e) => setForm({...form, unit: e.target.value})}
+                      className="w-24 bg-gray-800 text-white border border-gray-600 rounded-lg px-2 py-2 text-xs">
+                      <option value="قطعة">قطعة</option>
+                      <option value="وزن/كغ">وزن/كغ</option>
+                      <option value="وزن/غ">وزن/غ</option>
+                      <option value="لتر">لتر</option>
+                      <option value="كرتون">كرتون</option>
+                      <option value="علبة">علبة</option>
+                      <option value="كيس">كيس</option>
+                      <option value="متر">متر</option>
+                    </select>
+                  </div>
                 </div>
                 <div>
                   <label className="text-sm text-gray-400 mb-1 block">الحد الأدنى للمخزون</label>

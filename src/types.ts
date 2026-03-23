@@ -13,6 +13,7 @@ export interface Product {
   discountPercent?: number;
   bulkQuantity?: number;
   bulkPrice?: number;
+  unit?: string;
 }
 
 export interface CartItem {
