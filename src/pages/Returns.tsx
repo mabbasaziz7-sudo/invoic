@@ -116,59 +116,63 @@ export default function Returns() {
       cashier: selectedInvoice.cashier,
     };
 
-    await saveReturn(record);
+    try {
+      await saveReturn(record);
 
-    // 3. Update or Delete the original Invoice
-    const updatedItems = selectedInvoice.items.map(invItem => {
-      const retItem = returnItems.find(ri => ri.name === invItem.name);
-      if (retItem) {
-        const newQty = invItem.quantity - retItem.quantity;
-        return {
-          ...invItem,
-          quantity: newQty,
-          total: invItem.price * newQty,
-        };
+      // 3. Update or Delete the original Invoice
+      const updatedItems = selectedInvoice.items.map(invItem => {
+        const retItem = returnItems.find(ri => ri.name === invItem.name);
+        if (retItem) {
+          const newQty = invItem.quantity - retItem.quantity;
+          return {
+            ...invItem,
+            quantity: newQty,
+            total: invItem.price * newQty,
+          };
+        }
+        return invItem;
+      }).filter(i => i.quantity > 0);
+
+      if (updatedItems.length === 0) {
+        // Entire invoice returned -> Delete it
+        await deleteInvoiceFromDB(selectedInvoice.id);
+      } else {
+        // Partial return -> Update invoice
+        const newSubtotal = updatedItems.reduce((s, i) => s + i.total, 0);
+        const newTax = newSubtotal * (selectedInvoice.tax / (selectedInvoice.subtotal || 1));
+        const newTotal = newSubtotal + newTax - selectedInvoice.discount;
+        
+        const newProfit = updatedItems.reduce((s, i) => {
+          const p = products.find(prod => prod.name === i.name);
+          return s + (i.price - (p?.buyPrice || 0)) * i.quantity;
+        }, 0);
+
+        await saveInvoice({
+          ...selectedInvoice,
+          items: updatedItems,
+          subtotal: newSubtotal,
+          total: Math.max(0, newTotal),
+          profit: newProfit,
+          remaining: Math.max(0, newTotal - selectedInvoice.paid),
+        });
       }
-      return invItem;
-    }).filter(i => i.quantity > 0);
 
-    if (updatedItems.length === 0) {
-      // Entire invoice returned -> Delete it
-      await deleteInvoiceFromDB(selectedInvoice.id);
-    } else {
-      // Partial return -> Update invoice
-      const newSubtotal = updatedItems.reduce((s, i) => s + i.total, 0);
-      const newTax = newSubtotal * (selectedInvoice.tax / (selectedInvoice.subtotal || 1)); // Keep same tax %
-      const newTotal = newSubtotal + newTax - selectedInvoice.discount;
-      
-      // Attempt to approximate new profit (optional but good)
-      const newProfit = updatedItems.reduce((s, i) => {
-        const p = products.find(prod => prod.name === i.name);
-        return s + (i.price - (p?.buyPrice || 0)) * i.quantity;
-      }, 0);
+      setReturns(await getReturns());
+      setProducts(await getProducts());
+      setInvoices(await getInvoices());
 
-      await saveInvoice({
-        ...selectedInvoice,
-        items: updatedItems,
-        subtotal: newSubtotal,
-        total: Math.max(0, newTotal),
-        profit: newProfit,
-        remaining: Math.max(0, newTotal - selectedInvoice.paid),
-      });
+      // Print return receipt
+      printReturnReceipt(record);
+
+      setShowNewReturn(false);
+      setSelectedInvoice(null);
+      setReturnItems([]);
+      setSearchInvoice('');
+      alert('تمت عملية الإرجاع بنجاح! ✅');
+    } catch (err) {
+      console.error('Confirm return failed:', err);
+      alert('حدث خطأ أثناء معالجة العملية: ' + (err as any).message);
     }
-
-    setReturns(await getReturns());
-    setProducts(await getProducts());
-    setInvoices(await getInvoices());
-
-    // Print return receipt
-    printReturnReceipt(record);
-
-    setShowNewReturn(false);
-    setSelectedInvoice(null);
-    setReturnItems([]);
-    setSearchInvoice('');
-    alert('تمت عملية الإرجاع بنجاح! ✅');
   };
 
   const printReturnReceipt = (ret: ReturnRecord) => {
