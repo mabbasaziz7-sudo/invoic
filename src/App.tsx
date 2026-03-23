@@ -17,6 +17,7 @@ import CustomerDisplay from './pages/CustomerDisplay';
 import Promotions from './pages/Promotions';
 import DailyClosing from './pages/DailyClosing';
 import ShiftMonitor from './pages/ShiftMonitor';
+import ProfitReport from './pages/Profit';
 
 function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -138,6 +139,7 @@ function App() {
       case 'promotions': return <Promotions />;
       case 'daily-closing': return <DailyClosing />;
       case 'shift-monitor': return <ShiftMonitor currentUser={currentUser} />;
+      case 'profit': return <ProfitReport />;
       default: return <POS currentUser={currentUser} />;
     }
   };

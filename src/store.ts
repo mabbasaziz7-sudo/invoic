@@ -96,6 +96,7 @@ const mapInvoiceToDB = (inv: Partial<Invoice>) => ({
   payment_method: inv.paymentMethod,
   cash_amount: inv.cashAmount,
   visa_amount: inv.visaAmount,
+  shift_id: inv.shiftId,
 });
 
 const mapDBToInvoice = (d: any): Invoice => ({
@@ -114,6 +115,7 @@ const mapDBToInvoice = (d: any): Invoice => ({
   paymentMethod: d.payment_method,
   cashAmount: Number(d.cash_amount),
   visaAmount: Number(d.visa_amount),
+  shiftId: d.shift_id,
 });
 
 export async function getInvoices(): Promise<Invoice[]> {
@@ -465,10 +467,25 @@ export async function closeShift(shiftId: number, actualCash: number, expectedCa
   if (error) throw error;
 }
 
-export async function getActiveShifts() {
-  const { data, error } = await supabase.from('shifts').select('*, users(full_name)').eq('status', 'open');
-  if (error) throw error;
-  return data;
+export async function getActiveShifts(): Promise<any[]> {
+  const { data, error } = await supabase
+    .from('shifts')
+    .select('*, users:cashier_id(full_name), invoices:id(total, profit)')
+    .eq('status', 'open');
+    
+  if (error) return [];
+  
+  // Calculate totals manually from joined invoices for real-time accuracy
+  return (data || []).map(s => {
+    const shiftInvoices = s.invoices || [];
+    const totalSales = shiftInvoices.reduce((sum: number, inv: any) => sum + Number(inv.total), 0);
+    const expectedCash = totalSales; // Simple logic: total sales contribute to expected cash
+    return {
+      ...s,
+      total_sales: totalSales,
+      expected_cash: expectedCash
+    };
+  });
 }
 
 export async function updateDailyClosingStatus(id: number, status: string) {

@@ -24,6 +24,7 @@ export default function POS({ currentUser }: POSProps) {
   const [allCoupons, setAllCoupons] = useState<Coupon[]>([]);
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
   const [activeOffers, setActiveOffers] = useState<ProductOffer[]>([]);
+  const [allInvoicesState, setAllInvoicesState] = useState<Invoice[]>([]);
 
   // Payment method
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
@@ -93,6 +94,7 @@ export default function POS({ currentUser }: POSProps) {
       setClients(await getClients());
       setAllCoupons(await getCoupons());
       setActiveOffers(await getProductOffers());
+      setAllInvoicesState(await getInvoices());
       
       if (currentUser?.id) {
         const openShiftData = await getOpenShift(currentUser.id);
@@ -324,6 +326,71 @@ export default function POS({ currentUser }: POSProps) {
          alert(`خطأ في فتح الوردية: ${err.message || 'تأكد من تحديث قاعدة البيانات'}`); 
        }
     }
+  };
+
+  const printShiftReport = (s: Shift) => {
+    const printWindow = window.open('', '_blank', 'width=450,height=700');
+    if (!printWindow) return;
+
+    const shiftInvoices = allInvoicesState.filter(inv => inv.shiftId === s.id);
+    const totalCashSales = shiftInvoices.filter(i => i.paymentMethod === 'cash').reduce((sum: number, i: any) => sum + i.total, 0);
+    const totalVisaSales = shiftInvoices.filter(i => i.paymentMethod === 'visa').reduce((sum: number, i: any) => sum + i.total, 0);
+
+    const content = `
+      <html dir="rtl">
+        <head>
+          <title>Shift Report - ${s.id}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;900&display=swap');
+            body { font-family: 'Tajawal', sans-serif; text-align: center; padding: 10px; width: 70mm; margin: 0 auto; color: #000; }
+            .header { font-size: 16px; font-weight: 900; border-bottom: 2px solid #000; padding-bottom: 5px; margin-bottom: 10px; }
+            .section { border-bottom: 1px dashed #ccc; padding: 8px 0; text-align: right; }
+            .row { display: flex; justify-content: space-between; font-size: 12px; margin: 3px 0; }
+            .total-row { font-weight: 900; font-size: 14px; margin-top: 5px; border-top: 1px solid #000; padding-top: 5px; }
+            .footer { font-size: 10px; margin-top: 20px; color: #666; }
+            .badge { background: #000; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 10px; }
+          </style>
+        </head>
+        <body onload="window.print(); window.close();">
+          <div class="header">تقرير وردية كاشير (X-Report)</div>
+          <div style="font-size: 10px; margin-bottom: 15px;">المتجر: ${settings.storeName} | التاريخ: ${new Date().toLocaleDateString('ar-EG')}</div>
+          
+          <div class="section">
+            <div class="row"><span>رقم الوردية:</span> <span>#${s.id}</span></div>
+            <div class="row"><span>الكاشير:</span> <span>${currentUser?.fullName}</span></div>
+            <div class="row"><span>وقت الفتح:</span> <span>${new Date(s.openedAt).toLocaleTimeString('ar-EG')}</span></div>
+          </div>
+
+          <div class="section">
+            <div class="row"><span>العهدة الافتتاحية:</span> <span>${s.initialCash.toFixed(2)}</span></div>
+            <div class="row"><span>مبيعات نقدي:</span> <span>${totalCashSales.toFixed(2)}</span></div>
+            <div class="row"><span>مبيعات بطاقة:</span> <span>${totalVisaSales.toFixed(2)}</span></div>
+            <div class="total-row row"><span>إجمالي المبيعات:</span> <span>${s.totalSales.toFixed(2)}</span></div>
+          </div>
+
+          <div class="section">
+            <div class="total-row row"><span>المتوقع في الصندوق:</span> <span>${(s.expectedCash + s.initialCash).toFixed(2)}</span></div>
+            <div class="row"><span>المبلغ الفعلي (عد):</span> <span>${actualShiftCash.toFixed(2)}</span></div>
+            <div class="row" style="color: ${actualShiftCash >= (s.expectedCash + s.initialCash) ? 'green' : 'red'};">
+              <span>العجز / الزيادة:</span> 
+              <span>${(actualShiftCash - (s.expectedCash + s.initialCash)).toFixed(2)}</span>
+            </div>
+          </div>
+
+          <div class="section">
+            <div style="font-weight: bold; margin-bottom: 5px; font-size: 12px;">ملخص العمليات:</div>
+            <div class="row"><span>عدد الفواتير:</span> <span>${shiftInvoices.length}</span></div>
+          </div>
+
+          <div class="footer">
+            <p>نظام Bakhcha Pro POS لإدارة المبيعات</p>
+            <p>${new Date().toLocaleString('ar-EG')}</p>
+          </div>
+        </body>
+      </html>
+    `;
+    printWindow.document.write(content);
+    printWindow.document.close();
   };
 
   const closeShiftHandler = async () => {
