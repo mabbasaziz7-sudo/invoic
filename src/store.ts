@@ -2,7 +2,7 @@ import { Product, Client, Invoice, Expense, User, ReturnRecord, UserPermissions,
 import { supabase } from './lib/supabase';
 
 // --- مساعدات (Helpers) ---
-const INVOICES_KEY = 'bakhcha_invoices'; // لا نزال نحتاج لبعض التخزين المؤقت أحياناً
+// (No global helpers currently needed)
 
 // 1. المنتجات (Products)
 export async function getProducts(): Promise<Product[]> {
