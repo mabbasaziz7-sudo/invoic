@@ -75,11 +75,11 @@ CREATE TABLE IF NOT EXISTS users (
     username TEXT UNIQUE NOT NULL,
     password TEXT NOT NULL,
     role TEXT DEFAULT 'كاشير',
-    "fullName" TEXT,
+    full_name TEXT,
     phone TEXT,
     active BOOLEAN DEFAULT TRUE,
     permissions JSONB,
-    "lastLogin" TIMESTAMPTZ,
+    last_login TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -125,7 +125,7 @@ BEGIN
 END $$;
 
 -- إضافة مدير افتراضي (اختياري)
-INSERT INTO users (username, password, role, "fullName", active) 
+INSERT INTO users (username, password, role, full_name, active) 
 VALUES ('admin', 'admin123', 'مدير', 'مدير النظام', TRUE)
 ON CONFLICT (username) DO NOTHING;
 
