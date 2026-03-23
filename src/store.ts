@@ -284,8 +284,10 @@ export function logoutUser() {
 }
 
 export function getUserPermissions(user: User): UserPermissions {
-  if (user.permissions) return user.permissions;
-  return defaultPermissions[user.role as keyof typeof defaultPermissions] || defaultPermissions['كاشير'];
+  const roleDefaults = defaultPermissions[user.role as keyof typeof defaultPermissions] || defaultPermissions['كاشير'];
+  if (!user.permissions) return roleDefaults;
+  // Merge stored perms with defaults to handle new keys (like statistics)
+  return { ...roleDefaults, ...user.permissions };
 }
 
 
