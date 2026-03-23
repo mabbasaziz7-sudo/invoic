@@ -129,14 +129,20 @@ export default function Products({ currentUser }: ProductsProps) {
       image: formImage,
     };
 
-    if (editProduct) {
-      await saveProduct({ ...pData, id: editProduct.id });
-    } else {
-      await saveProduct(pData);
+    try {
+      if (editProduct) {
+        await saveProduct({ ...pData, id: editProduct.id });
+      } else {
+        await saveProduct(pData);
+      }
+      
+      setProducts(await getProducts());
+      setShowAddModal(false);
+      alert('تم حفظ المنتج بنجاح ✅');
+    } catch (err: any) {
+      console.error('Error saving product:', err);
+      alert('فشل حفظ المنتج: ' + (err.message || 'حدث خطأ غير متوقع'));
     }
-    
-    setProducts(await getProducts());
-    setShowAddModal(false);
   };
 
   const deleteSelected = async () => {

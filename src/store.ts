@@ -49,10 +49,10 @@ export async function saveProduct(product: Partial<Product>) {
   const dbData = mapProductToDB(product);
   if (product.id) {
     const { error } = await supabase.from('products').update(dbData).eq('id', product.id);
-    if (error) console.error('Error updating product stock:', error, 'ID:', product.id);
+    if (error) throw error;
   } else {
     const { error } = await supabase.from('products').insert(dbData);
-    if (error) console.error('Error inserting product:', error);
+    if (error) throw error;
   }
 }
 

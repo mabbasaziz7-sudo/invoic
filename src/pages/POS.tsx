@@ -682,10 +682,8 @@ export default function POS({ currentUser }: POSProps) {
       alert('أدخل سعر البيع!');
       return;
     }
-    const newId = products.length > 0 ? Math.max(...products.map(p => p.id)) + 1 : 1;
     const newBarcode = quickProduct.barcode || Math.floor(1000000000 + Math.random() * 9000000000).toString();
-    const newProduct: Product = {
-      id: newId,
+    const newProduct: Partial<Product> = { // Changed to Partial
       name: quickProduct.name.trim(),
       barcode: newBarcode,
       quantity: quickProduct.quantity,
@@ -696,11 +694,17 @@ export default function POS({ currentUser }: POSProps) {
       minStock: 5,
       image: quickProductImage,
     };
-    await saveProduct(newProduct);
-    setProducts(await getProducts());
-    setQuickProduct({ name: '', barcode: '', quantity: 1, buyPrice: 0, sellPrice: 0, category: 'عام' });
-    setQuickProductImage('');
-    setShowQuickAddProduct(false);
+    try {
+      await saveProduct(newProduct);
+      setProducts(await getProducts());
+      setQuickProduct({ name: '', barcode: '', quantity: 1, buyPrice: 0, sellPrice: 0, category: 'عام' });
+      setQuickProductImage('');
+      setShowQuickAddProduct(false);
+      alert('تمت إضافة المنتج بنجاح ✅');
+    } catch (err: any) {
+      console.error('Quick add failed:', err);
+      alert('فشل الإضافة السريعة: ' + (err.message || 'خطأ في الاتصال بقاعدة البيانات'));
+    }
   };
 
   const handleQuickProductImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
