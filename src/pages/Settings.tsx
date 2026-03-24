@@ -281,6 +281,38 @@ export default function Settings() {
           </div>
         </div>
 
+        {/* Loyalty Points Settings */}
+        <div className="bg-gray-800 rounded-xl p-6 border border-yellow-600/30">
+          <h3 className="text-lg font-bold text-yellow-400 mb-4">🌟 إعدادات نظام نقاط الولاء</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm text-gray-400 mb-1 block">نقاط مكتسبة لكل (X) دج من المشتريات</label>
+              <div className="flex items-center gap-2">
+                <span className="text-gray-300 text-sm font-bold">1 نقطة عند كل</span>
+                <input type="number" min={1} value={settings.loyaltyPointsPer ?? 100}
+                  onChange={e => setSettingsState({ ...settings, loyaltyPointsPer: Number(e.target.value) })}
+                  className="w-24 bg-gray-900 text-white border border-yellow-600/50 rounded-lg px-3 py-2 text-center font-bold" />
+                <span className="text-gray-300 text-sm font-bold">{settings.currency}</span>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">مثال: 1 نقطة مقابل كل 100 دج مشتريات</p>
+            </div>
+            <div>
+              <label className="text-sm text-gray-400 mb-1 block">قيمة النقطة الواحدة عند الاسترداد</label>
+              <div className="flex items-center gap-2">
+                <span className="text-gray-300 text-sm font-bold">1 نقطة =</span>
+                <input type="number" min={0.1} step={0.1} value={settings.loyaltyPointValue ?? 1}
+                  onChange={e => setSettingsState({ ...settings, loyaltyPointValue: Number(e.target.value) })}
+                  className="w-24 bg-gray-900 text-white border border-yellow-600/50 rounded-lg px-3 py-2 text-center font-bold" />
+                <span className="text-gray-300 text-sm font-bold">{settings.currency}</span>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">مثال: كل نقطة تعادل 1 دج خصم</p>
+            </div>
+          </div>
+          <div className="mt-4 bg-yellow-900/20 border border-yellow-500/20 rounded-lg p-3 text-sm text-yellow-300">
+            📌 مثال حالي: عند كل شراء بـ <strong>{settings.loyaltyPointsPer ?? 100} {settings.currency}</strong> يحصل العميل على <strong>1 نقطة</strong>، وكل نقطة تساوي <strong>{settings.loyaltyPointValue ?? 1} {settings.currency}</strong> خصم.
+          </div>
+        </div>
+
         <button onClick={handleSave}
           className={`w-full py-3 rounded-xl font-bold text-lg transition-all ${saved ? 'bg-green-600 text-white scale-105' : 'bg-sky-600 hover:bg-sky-700 text-white'}`}>
           {saved ? '✅ تم الحفظ بنجاح!' : '💾 حفظ جميع الإعدادات'}

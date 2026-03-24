@@ -245,10 +245,21 @@ export default function POS({ currentUser }: POSProps) {
     }
     // 1. Check for Group Offers (Multi-product offers)
     else {
-      const activeOffer = activeOffers.find(off => off.productIds.includes(item.product.id!));
+      // Calculate total product count in cart for quantity condition
+      const totalCartItems = cart.reduce((s, i) => s + i.quantity, 0);
+      const activeOffer = activeOffers.find(off => {
+        if (!off.productIds.includes(item.product.id!)) return false;
+        // Check minQuantity condition across all offer products
+        if (off.minQuantity && off.minQuantity > 1) {
+          const offerItemsInCart = cart.filter(i => off.productIds.includes(i.product.id!));
+          const offerQty = offerItemsInCart.reduce((s, i) => s + i.quantity, 0);
+          return offerQty >= off.minQuantity;
+        }
+        return true;
+      });
       if (activeOffer) {
          if (activeOffer.discountPercent > 0) price = price * (1 - activeOffer.discountPercent / 100);
-         else if (activeOffer.discountAmount > 0) price = Math.max(0, price - activeOffer.discountAmount);
+         else if (activeOffer.discountAmount > 0) price = Math.max(0, price - activeOffer.discountAmount / activeOffer.productIds.length);
       }
       // 2. Check Bulk Pricing
       else if ((item.product.bulkQuantity || 0) > 0 && item.quantity >= (item.product.bulkQuantity || 0)) {
@@ -319,6 +330,11 @@ export default function POS({ currentUser }: POSProps) {
   const finalDiscountAmount = (subtotal * (discount / 100)) + getCouponDiscount() + pointsDiscount;
   const taxAmount = (subtotal - finalDiscountAmount) * (tax / 100);
   const total = subtotal - finalDiscountAmount + taxAmount;
+  
+  // Calculate raw total without any offer discounts for "you saved" display
+  const rawSubtotal = cart.reduce((sum, item) => sum + item.product.sellPrice * item.quantity, 0);
+  const savedByOffers = rawSubtotal - subtotal;
+  const totalSaved = savedByOffers + (subtotal * (discount / 100)) + getCouponDiscount() + pointsDiscount;
   const totalPaid = paymentMethod === 'mixed' ? cashAmount + visaAmount : paid;
   const remaining = totalPaid - total;
 
@@ -480,6 +496,7 @@ export default function POS({ currentUser }: POSProps) {
       paid: actualPaid,
       remaining: parseFloat((actualPaid - total).toFixed(2)),
       cashier: currentUser?.fullName || currentUser?.username || 'مدير',
+      ...(totalSaved > 0.01 ? { totalSaved: parseFloat(totalSaved.toFixed(2)) } : {}),
       profit: parseFloat((profit * (1 - discount / 100) * (1 + tax / 100)).toFixed(2)),
       paymentMethod,
       cashAmount: paymentMethod === 'mixed' ? cashAmount : paymentMethod === 'cash' ? actualPaid : 0,
@@ -542,8 +559,9 @@ export default function POS({ currentUser }: POSProps) {
           if (usePoints) {
             updatedPoints -= pointsDiscount;
           }
-          // Earn points: 1 point for every 100 DZD of the total
-          const earned = Math.floor(invoice.total / 100);
+          // Earn points using configurable settings
+          const loyaltyPer = settings.loyaltyPointsPer ?? 100;
+          const earned = Math.floor(invoice.total / loyaltyPer);
           updatedPoints += earned;
           
           await saveClient({ ...client, points: updatedPoints });
@@ -838,6 +856,7 @@ export default function POS({ currentUser }: POSProps) {
       <p>المدفوع: ${inv.paid.toFixed(2)} ${settings.currency}</p>
       ${payDetails}
       ${inv.remaining !== 0 ? `<p>الباقي: ${inv.remaining.toFixed(2)} ${settings.currency}</p>` : ''}
+      ${(inv as any).totalSaved > 0.01 ? `<div style="margin:6px 0;padding:6px 8px;background:#d1fae5;border:1px dashed #6ee7b7;border-radius:6px;text-align:center;font-weight:bold;color:#065f46;font-size:13px;">🎉 لقد وفّرت: ${(inv as any).totalSaved.toFixed(2)} ${settings.currency}</div>` : ''}
       ${invoiceNotes ? `<div class="notes">📌 ${invoiceNotes}</div>` : ''}
       <div class="line"></div>
       ${showBarcode ? `<div class="barcode-section"><svg id="invoice-barcode-${barcodeId}"></svg></div>` : ''}
@@ -991,6 +1010,11 @@ export default function POS({ currentUser }: POSProps) {
             <input type="text" readOnly value={total.toFixed(2)} className="flex-1 bg-yellow-500/20 text-yellow-400 border-2 border-yellow-500 rounded px-2 py-0.5 text-base lg:text-lg font-black text-left" />
             <span className="text-xs font-bold whitespace-nowrap">الإجمالي:</span>
           </div>
+          {totalSaved > 0.01 && (
+            <div className="bg-green-900/30 border border-green-500/40 rounded-lg px-2 py-1 text-center animate-pulse">
+              <span className="text-green-400 text-xs font-bold">🎉 لقد وفّرت: {totalSaved.toFixed(2)} {settings.currency}</span>
+            </div>
+          )}
 
           {/* Payment Method Selection */}
           <div className="bg-gray-800/80 rounded-xl p-2 border border-gray-600">

@@ -180,6 +180,8 @@ export interface ProductOffer {
   productIds: number[];
   active: boolean;
   expiryDate?: string;
+  minQuantity?: number;   // e.g. 2 = apply discount when buying 2+ products
+  showSavings?: boolean;  // show "you saved X" line on invoice
 }
 
 export interface DailyClosing {

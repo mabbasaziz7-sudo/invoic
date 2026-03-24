@@ -193,7 +193,7 @@ export default function Promotions() {
              ➕ كوبون جديد
            </button>
            <button
-             onClick={() => { setEditingGroupOffer({ name: '', discountPercent: 0, discountAmount: 0, productIds: [], active: true, expiryDate: '' }); setShowGroupOfferModal(true); }}
+             onClick={() => { setEditingGroupOffer({ name: '', discountPercent: 0, discountAmount: 0, productIds: [], active: true, expiryDate: '', minQuantity: 2, showSavings: true }); setShowGroupOfferModal(true); }}
              className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-xl font-bold transition-all shadow-lg text-sm"
            >
              📦 عرض مجموعة
@@ -244,7 +244,13 @@ export default function Promotions() {
                   <div className="flex justify-between items-start">
                      <div>
                         <p className="font-bold text-white text-lg">{offer.name}</p>
-                        <p className="text-xs text-purple-400 font-bold">خصم {offer.discountPercent > 0 ? `${offer.discountPercent}%` : `${offer.discountAmount} ${settings.currency}`}</p>
+                        <p className="text-xs text-purple-400 font-bold">
+                          خصم {offer.discountPercent > 0 ? `${offer.discountPercent}%` : `${offer.discountAmount} ${settings.currency}`}
+                          {offer.minQuantity && offer.minQuantity > 1 && (
+                            <span className="text-orange-400 mr-2">| عند شراء {offer.minQuantity}+ منتج</span>
+                          )}
+                        </p>
+                        {offer.showSavings && <p className="text-[10px] text-green-400 mt-0.5">✅ تظهر "قد وفرت" في الفاتورة</p>}
                         <p className="text-[10px] text-gray-500 mt-1">صلاحية العرض: {offer.expiryDate || 'دائم'}</p>
                      </div>
                      <button onClick={async () => { if(confirm('حذف؟')) { await deleteProductOffer(offer.id!); load(); } }} className="text-xs text-red-400 opacity-0 group-hover:opacity-100">✕</button>
@@ -338,9 +344,30 @@ export default function Promotions() {
                      className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white font-bold" />
                 </div>
                 <div>
-                   <label className="text-xs text-gray-400 mb-1 block">أو خصم بمبلغ</label>
+                   <label className="text-xs text-gray-400 mb-1 block">أو خصم بمبلغ ثابت</label>
                    <input type="number" value={editingGroupOffer.discountAmount} onChange={e => setEditingGroupOffer({ ...editingGroupOffer, discountAmount: Number(e.target.value), discountPercent: 0 })}
                      className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white" />
+                </div>
+              </div>
+
+              {/* NEW: Min Quantity & Savings */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">🛒 الحد الأدنى للكمية (مجموع منتجات)</label>
+                  <input type="number" min={1} value={editingGroupOffer.minQuantity ?? 2}
+                    onChange={e => setEditingGroupOffer({ ...editingGroupOffer, minQuantity: Number(e.target.value) })}
+                    className="w-full bg-gray-900 border border-orange-500/50 rounded-xl px-4 py-3 text-white font-bold" />
+                  <p className="text-[10px] text-gray-500 mt-1">الخصم يطبق عند شراء X قطعة أو أكثر</p>
+                </div>
+                <div className="flex flex-col items-center justify-center">
+                  <label className="text-xs text-gray-400 mb-2 block text-center">إظهار "قد وفرت" في الفاتورة</label>
+                  <button type="button"
+                    onClick={() => setEditingGroupOffer({ ...editingGroupOffer, showSavings: !editingGroupOffer.showSavings })}
+                    className={`px-4 py-2 rounded-xl font-bold text-sm transition-all ${
+                      editingGroupOffer.showSavings !== false ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-400'
+                    }`}>
+                    {editingGroupOffer.showSavings !== false ? '✅ نعم - إظهار التوفير' : '❌ لا'}
+                  </button>
                 </div>
               </div>
               <div>
