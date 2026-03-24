@@ -27,7 +27,7 @@ const menuItems: { id: PageType; label: string; shortLabel: string; emoji: strin
   { id: 'returns', label: 'المرتجعات', shortLabel: 'المرتجعات', emoji: '🔄', color: 'bg-orange-500 hover:bg-orange-600', permKey: 'returns' },
   { id: 'customer-display', label: 'شاشة العميل', shortLabel: 'العميل', emoji: '📺', color: 'bg-purple-500 hover:bg-purple-600', permKey: 'customerDisplay' },
   { id: 'settings', label: 'إعدادات النظام', shortLabel: 'الإعدادات', emoji: '⚙️', color: 'bg-sky-500 hover:bg-sky-600', permKey: 'settings' },
-  // { id: 'shift-monitor', label: 'مراقبة الكاشير', shortLabel: 'مراقبة', emoji: '🖥️', color: 'bg-indigo-600 hover:bg-indigo-700', permKey: 'shiftMonitor' },
+  { id: 'shift-monitor', label: 'مراقبة الكاشير', shortLabel: 'مراقبة', emoji: '🖥️', color: 'bg-indigo-600 hover:bg-indigo-700', permKey: 'shiftMonitor' },
 
 ];
 

@@ -101,7 +101,6 @@ export default function POS({ currentUser }: POSProps) {
       setActiveOffers(await getProductOffers());
       setAllInvoicesState(await getInvoices());
       
-      /* 
       if (currentUser?.id) {
         const openShiftData = await getOpenShift(currentUser.id);
         if (openShiftData) {
@@ -110,7 +109,6 @@ export default function POS({ currentUser }: POSProps) {
           setShowShiftOpenModal(true);
         }
       }
-      */
     };
     loadData();
     generateInvoiceId();
@@ -452,6 +450,7 @@ export default function POS({ currentUser }: POSProps) {
     if (currentShift?.id) {
        try {
          await closeShift(currentShift.id, actualShiftCash, currentShift.expectedCash, currentShift.totalSales);
+         printShiftReport(currentShift);
          alert('تم تقفيل الوردية بنجاح ✅');
          setCurrentShift(null);
          setShowShiftCloseModal(false);
@@ -465,13 +464,11 @@ export default function POS({ currentUser }: POSProps) {
 
   // Open payment confirmation modal
   const openPaymentModal = () => {
-    /*
     if (!currentShift) {
       alert('يجب فتح وردية أولاً!');
       setShowShiftOpenModal(true);
       return;
     }
-    */
     if (cart.length === 0) {
       alert('السلة فارغة!');
       return;
@@ -1737,13 +1734,37 @@ export default function POS({ currentUser }: POSProps) {
           </div>
         </div>
       )}
-      {/* 
       {showShiftOpenModal && (
-        ...
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-[110] p-4">
+          <div className="bg-[#1e293b] rounded-3xl p-8 w-full max-w-lg shadow-2xl border border-sky-500/30 text-center relative overflow-hidden">
+             <div className="absolute top-0 left-0 w-full h-2 bg-sky-500 opacity-50"></div>
+             <h2 className="text-3xl font-black text-white mb-6">👋 مرحباً بك في وردية جديدة</h2>
+             <p className="text-gray-400 mb-8 font-bold">يرجى إدخال مبلغ العهدة الافتتاحية للصندوق للبدء</p>
+             
+             <div className="space-y-6 text-right">
+                <div>
+                   <label className="text-xs text-sky-400 font-bold mb-2 block uppercase">العهدة الافتتاحية (د.ج)</label>
+                   <input 
+                     type="number" 
+                     autoFocus
+                     min="0"
+                     className="w-full bg-gray-900 border-2 border-sky-500/20 focus:border-sky-500 rounded-2xl px-6 py-4 text-3xl font-black text-center text-white outline-none transition-all"
+                     value={initialShiftCash}
+                     onChange={e => setInitialShiftCash(Number(e.target.value))}
+                     onKeyDown={e => e.key === 'Enter' && openShiftHandler()}
+                   />
+                </div>
+                <button 
+                  onClick={openShiftHandler}
+                  className="w-full bg-sky-600 hover:bg-sky-700 text-white font-black py-4 rounded-2xl text-xl shadow-lg transition-all hover:scale-[1.02]"
+                >
+                  🚀 فتح الوردية والبدء
+                </button>
+             </div>
+          </div>
+        </div>
       )}
-      */}
 
-      {/* Shift Close Modal - Disabled
       {showShiftCloseModal && currentShift && (
         <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-[110] p-4">
           <div className="bg-[#1e293b] rounded-3xl p-8 w-full max-w-lg shadow-2xl border border-red-500/30 text-center relative overflow-hidden">
@@ -1770,6 +1791,7 @@ export default function POS({ currentUser }: POSProps) {
                      className="w-full bg-gray-900 border-2 border-red-500/20 focus:border-red-500 rounded-2xl px-6 py-4 text-3xl font-black text-center text-white outline-none transition-all"
                      value={actualShiftCash}
                      onChange={e => setActualShiftCash(Number(e.target.value))}
+                     onKeyDown={e => e.key === 'Enter' && closeShiftHandler()}
                    />
                 </div>
 
@@ -1787,7 +1809,7 @@ export default function POS({ currentUser }: POSProps) {
                      onClick={closeShiftHandler}
                      className="flex-1 bg-red-600 hover:bg-red-700 text-white font-black py-4 rounded-2xl text-xl shadow-lg transition-all"
                    >
-                     ✅ تقفيل وتسجيل خروج
+                     ✅ تقفيل الوردية
                    </button>
                    <button 
                      onClick={() => setShowShiftCloseModal(false)}
@@ -1800,7 +1822,6 @@ export default function POS({ currentUser }: POSProps) {
           </div>
         </div>
       )}
-      */}
 
       {/* Cart Item Price Modal */}
       {showCartItemModal && editingCartItem !== null && (

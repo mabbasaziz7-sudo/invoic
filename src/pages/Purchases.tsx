@@ -23,6 +23,12 @@ export default function Purchases() {
   const [selectedProduct, setSelectedProduct] = useState<number | ''>('');
   const [qty, setQty] = useState<number>(1);
   const [cost, setCost] = useState<number>(0);
+  const [barcodeInput, setBarcodeInput] = useState('');
+
+  // Payment state
+  const [showPayModal, setShowPayModal] = useState(false);
+  const [paymentInvoice, setPaymentInvoice] = useState<PurchaseInvoice | null>(null);
+  const [paymentAmount, setPaymentAmount] = useState<number>(0);
 
   useEffect(() => {
     loadData();
@@ -164,6 +170,67 @@ export default function Purchases() {
     }
   };
 
+  const handlePurchaseBarcode = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && barcodeInput.trim() !== '') {
+      e.preventDefault();
+      const code = barcodeInput.trim();
+      const p = products.find(prod => prod.barcode === code);
+      if (p) {
+        // Auto add 1 quantity of this product
+        const existingIndex = cart.findIndex(c => c.productId === p.id);
+        if (existingIndex >= 0) {
+          const newCart = [...cart];
+          newCart[existingIndex].quantity += 1;
+          newCart[existingIndex].total = newCart[existingIndex].quantity * newCart[existingIndex].unitPrice;
+          setCart(newCart);
+        } else {
+          setCart([...cart, {
+            productId: p.id,
+            productName: p.name,
+            quantity: 1,
+            unitPrice: p.buyPrice,
+            total: p.buyPrice
+          }]);
+        }
+        setBarcodeInput('');
+      } else {
+        alert('حدث خطأ: منتج غير موجود بهذا الباركود');
+      }
+    }
+  };
+
+  const openPayModal = (inv: PurchaseInvoice) => {
+    setPaymentInvoice(inv);
+    setPaymentAmount(inv.remaining);
+    setShowPayModal(true);
+  };
+
+  const handlePayInvoice = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!paymentInvoice || paymentAmount <= 0 || paymentAmount > paymentInvoice.remaining) return;
+
+    // Update invoice
+    const newPaid = (paymentInvoice.paid || 0) + paymentAmount;
+    const newRemaining = paymentInvoice.total - newPaid;
+    let newStatus: 'paid' | 'partial' | 'unpaid' = 'unpaid';
+    if (newPaid >= paymentInvoice.total && paymentInvoice.total > 0) newStatus = 'paid';
+    else if (newPaid > 0) newStatus = 'partial';
+
+    await savePurchaseInvoice({ ...paymentInvoice, paid: newPaid, remaining: newRemaining, paymentStatus: newStatus });
+
+    // Update supplier
+    if (paymentInvoice.supplierId) {
+       const supplier = suppliers.find(s => s.id === paymentInvoice.supplierId);
+       if (supplier) {
+         const newBal = Math.max(0, (supplier.balance || 0) - paymentAmount);
+         await saveSupplier({ ...supplier, balance: newBal });
+       }
+    }
+
+    setShowPayModal(false);
+    loadData();
+    alert('تم الدفع وتحديث رصيد المورد بنجاح ✅');
+  };
 
   return (
     <div className="p-4 h-screen overflow-auto" dir="rtl">
@@ -230,9 +297,16 @@ export default function Purchases() {
                       </span>
                     </td>
                     <td className="p-3 text-center">
-                      <button onClick={() => handleDeleteInvoice(inv.id!)} className="bg-red-900/50 text-red-300 px-2.5 py-1 rounded hover:bg-red-600 hover:text-white transition-colors text-xs">
-                        حذف
-                      </button>
+                      <div className="flex gap-2 justify-center">
+                        {inv.remaining > 0 && (
+                          <button onClick={() => openPayModal(inv)} className="bg-green-600 hover:bg-green-700 text-white px-2.5 py-1 rounded transition-colors text-xs font-bold shadow">
+                            دفع الباقي
+                          </button>
+                        )}
+                        <button onClick={() => handleDeleteInvoice(inv.id!)} className="bg-red-900/50 text-red-300 px-2.5 py-1 rounded hover:bg-red-600 hover:text-white transition-colors text-xs">
+                          حذف
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -343,8 +417,15 @@ export default function Purchases() {
                    </select>
                  </div>
                  <div className="pt-4 border-t border-gray-700">
-                    <h4 className="text-teal-400 font-bold mb-3">📦 إضافة منتج للفاتورة</h4>
+                    <h4 className="text-teal-400 font-bold mb-3 flex justify-between items-center">
+                      <span>📦 إضافة منتج بالفاتورة</span>
+                    </h4>
                     <div className="space-y-3">
+                      <div>
+                        <label className="text-xs text-green-400 mb-1 block">🔍 إضافة بالباركود سريعاً</label>
+                        <input type="text" value={barcodeInput} onChange={e => setBarcodeInput(e.target.value)} onKeyDown={handlePurchaseBarcode} placeholder="مرر الباركود هنا..." className="w-full bg-gray-900 border border-green-500/50 rounded-lg px-3 py-2 text-white text-sm focus:border-green-400 focus:ring-1 focus:ring-green-400" autoFocus />
+                      </div>
+                      <div className="text-center text-xs text-gray-500">أو إضافة يدوياً:</div>
                       <div>
                         <label className="text-xs text-gray-400 mb-1 block">المنتج</label>
                         <select value={selectedProduct} onChange={(e) => {
@@ -443,6 +524,34 @@ export default function Purchases() {
                 </form>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+      {/* --- PAY UNPAID INVOICE MODAL --- */}
+      {showPayModal && paymentInvoice && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowPayModal(false)}>
+          <div className="bg-[#1e293b] rounded-2xl w-full max-w-sm border border-gray-600 shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="bg-gray-800 p-4 border-b border-gray-700">
+              <h3 className="font-bold text-green-400 text-center">تسديد دفعة للمورد</h3>
+            </div>
+            <form onSubmit={handlePayInvoice} className="p-5 space-y-4">
+              <div className="bg-gray-900 p-3 rounded-xl border border-gray-700">
+                <p className="text-xs text-gray-400 mb-1">المورد: <span className="text-white font-bold">{paymentInvoice.supplierName}</span></p>
+                <p className="text-xs text-gray-400">إجمالي الفاتورة: <span className="text-white">{paymentInvoice.total.toFixed(2)}</span></p>
+              </div>
+              <div>
+                <label className="text-xs text-red-400 mb-1 block">الباقي (المطلوب دفعه)</label>
+                <input type="text" readOnly value={paymentInvoice.remaining.toFixed(2)} className="w-full bg-red-900/20 border border-red-500/50 rounded-lg px-3 py-2 text-red-400 font-bold" />
+              </div>
+              <div>
+                <label className="text-xs text-green-400 mb-1 block">المبلغ المراد سداده الآن</label>
+                <input type="number" min="0" max={paymentInvoice.remaining} step="0.01" required autoFocus value={paymentAmount} onChange={e => setPaymentAmount(Number(e.target.value))} className="w-full bg-gray-900 border border-green-500/50 rounded-lg px-3 py-2 text-white font-bold text-xl text-center" />
+              </div>
+              <div className="pt-2 flex gap-2">
+                <button type="submit" className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-2.5 rounded-xl transition-all shadow-lg">تسديد الدفعة</button>
+                <button type="button" onClick={() => setShowPayModal(false)} className="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-bold py-2.5 rounded-xl transition-all">إلغاء</button>
+              </div>
+            </form>
           </div>
         </div>
       )}
