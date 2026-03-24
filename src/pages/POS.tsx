@@ -236,6 +236,25 @@ export default function POS({ currentUser }: POSProps) {
     }
   };
 
+  // Pre-compute which offers are "fully active" (ALL their products are in the cart)
+  const fullyActiveOffers = activeOffers.filter(offer => {
+    // Check that EVERY product in the offer's productIds list is present in the cart
+    const allProductsInCart = offer.productIds.every(pid =>
+      cart.some(i => i.product.id === pid)
+    );
+    if (!allProductsInCart) return false;
+
+    // If there's a minQuantity condition: total quantity of offer-products in cart >= minQuantity
+    if (offer.minQuantity && offer.minQuantity > 1) {
+      const offerQtyInCart = cart
+        .filter(i => offer.productIds.includes(i.product.id!))
+        .reduce((s, i) => s + i.quantity, 0);
+      return offerQtyInCart >= offer.minQuantity;
+    }
+
+    return true;
+  });
+
   const subtotal = cart.reduce((sum, item) => {
     let price = item.product.sellPrice;
     
@@ -243,23 +262,18 @@ export default function POS({ currentUser }: POSProps) {
     if (item.overridePrice !== undefined) {
        price = item.overridePrice;
     }
-    // 1. Check for Group Offers (Multi-product offers)
+    // 1. Check for Group Offers - only apply if the offer is "fully active"
     else {
-      // Calculate total product count in cart for quantity condition
-      const totalCartItems = cart.reduce((s, i) => s + i.quantity, 0);
-      const activeOffer = activeOffers.find(off => {
-        if (!off.productIds.includes(item.product.id!)) return false;
-        // Check minQuantity condition across all offer products
-        if (off.minQuantity && off.minQuantity > 1) {
-          const offerItemsInCart = cart.filter(i => off.productIds.includes(i.product.id!));
-          const offerQty = offerItemsInCart.reduce((s, i) => s + i.quantity, 0);
-          return offerQty >= off.minQuantity;
+      const matchedOffer = fullyActiveOffers.find(off =>
+        off.productIds.includes(item.product.id!)
+      );
+      if (matchedOffer) {
+        if (matchedOffer.discountPercent > 0) {
+          price = price * (1 - matchedOffer.discountPercent / 100);
+        } else if (matchedOffer.discountAmount > 0) {
+          // Distribute fixed discount evenly across all offer products
+          price = Math.max(0, price - matchedOffer.discountAmount / matchedOffer.productIds.length);
         }
-        return true;
-      });
-      if (activeOffer) {
-         if (activeOffer.discountPercent > 0) price = price * (1 - activeOffer.discountPercent / 100);
-         else if (activeOffer.discountAmount > 0) price = Math.max(0, price - activeOffer.discountAmount / activeOffer.productIds.length);
       }
       // 2. Check Bulk Pricing
       else if ((item.product.bulkQuantity || 0) > 0 && item.quantity >= (item.product.bulkQuantity || 0)) {
