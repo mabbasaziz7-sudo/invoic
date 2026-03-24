@@ -18,6 +18,7 @@ const menuItems: { id: PageType; label: string; shortLabel: string; emoji: strin
 
   { id: 'users', label: 'المستخدمين', shortLabel: 'المستخدمين', emoji: '👥', color: 'bg-sky-500 hover:bg-sky-600', permKey: 'users' },
   { id: 'inventory', label: 'المخزون والجرد', shortLabel: 'الجرد', emoji: '📊', color: 'bg-indigo-500 hover:bg-indigo-600', permKey: 'inventory' },
+  { id: 'purchases', label: 'المشتريات والموردين', shortLabel: 'المشتريات', emoji: '📦', color: 'bg-teal-600 hover:bg-teal-700', permKey: 'inventory' },
   { id: 'statistics', label: 'الإحصاءات', shortLabel: 'الإحصاءات', emoji: '📊', color: 'bg-sky-500 hover:bg-sky-600', permKey: 'statistics' },
   { id: 'debts', label: 'ديون العملاء', shortLabel: 'الديون', emoji: '💰', color: 'bg-sky-500 hover:bg-sky-600', permKey: 'debts' },
   { id: 'clients', label: 'العملاء والولاء', shortLabel: 'الولاء', emoji: '🌟', color: 'bg-yellow-600 hover:bg-yellow-700', permKey: 'debts' },

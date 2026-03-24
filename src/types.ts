@@ -209,4 +209,40 @@ export interface Shift {
   status: 'open' | 'closed';
 }
 
-export type PageType = 'pos' | 'products' | 'invoices' | 'statistics' | 'settings' | 'users' | 'inventory' | 'promotions' | 'daily-closing' | 'debts' | 'returns' | 'customer-display' | 'shift-monitor' | 'profit' | 'clients';
+export type PageType = 'pos' | 'products' | 'invoices' | 'statistics' | 'settings' | 'users' | 'inventory' | 'promotions' | 'daily-closing' | 'debts' | 'returns' | 'customer-display' | 'shift-monitor' | 'profit' | 'clients' | 'purchases';
+
+export interface Supplier {
+  id?: number;
+  name: string;
+  phone?: string;
+  address?: string;
+  email?: string;
+  balance: number;   // total amount owed to supplier (unpaid)
+  notes?: string;
+  created_at?: string;
+}
+
+export interface PurchaseItem {
+  productId?: number;
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+}
+
+export interface PurchaseInvoice {
+  id?: number;
+  invoiceNumber: string;
+  date: string;
+  supplierId?: number;
+  supplierName: string;
+  items: PurchaseItem[];
+  subtotal: number;
+  discount: number;
+  total: number;
+  paid: number;
+  remaining: number;
+  paymentStatus: 'paid' | 'partial' | 'unpaid';
+  notes?: string;
+  created_at?: string;
+}

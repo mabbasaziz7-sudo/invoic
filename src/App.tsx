@@ -19,6 +19,7 @@ import DailyClosing from './pages/DailyClosing';
 import ShiftMonitor from './pages/ShiftMonitor';
 import ProfitReport from './pages/Profit';
 import Clients from './pages/Clients';
+import Purchases from './pages/Purchases';
 
 function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -86,6 +87,7 @@ function App() {
       'daily-closing': 'dailyClosing',
       'shift-monitor': 'shiftMonitor',
       'clients': 'debts',
+      'purchases': 'inventory',
     };
     const permKey = pagePermMap[page];
     if (permKey && !perms[permKey]) {
@@ -143,6 +145,7 @@ function App() {
       case 'shift-monitor': return <ShiftMonitor currentUser={currentUser} />;
       case 'profit': return <ProfitReport />;
       case 'clients': return <Clients />;
+      case 'purchases': return <Purchases />;
       default: return <POS currentUser={currentUser} />;
     }
   };

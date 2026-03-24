@@ -58,6 +58,17 @@ export async function saveProduct(product: Partial<Product>) {
   }
 }
 
+export async function updateProductQuantity(id: number, qtyAmount: number, operation: 'add' | 'subtract') {
+  const { data: prod } = await supabase.from('products').select('quantity').eq('id', id).single();
+  if (prod) {
+    let newQty = Number(prod.quantity || 0);
+    if (operation === 'add') newQty += qtyAmount;
+    else if (operation === 'subtract') newQty = Math.max(0, newQty - qtyAmount);
+    
+    await supabase.from('products').update({ quantity: newQty }).eq('id', id);
+  }
+}
+
 export async function deleteProduct(id: number) {
   await supabase.from('products').delete().eq('id', id);
 }
@@ -499,4 +510,42 @@ export async function getActiveShifts(): Promise<any[]> {
 
 export async function updateDailyClosingStatus(id: number, status: string) {
   await supabase.from('daily_closings').update({ status }).eq('id', id);
+}
+
+// --- الموردين (Suppliers) ---
+export async function getSuppliers(): Promise<any[]> {
+  const { data, error } = await supabase.from('suppliers').select('*').order('name');
+  if (error) return [];
+  return data || [];
+}
+
+export async function saveSupplier(supplier: any) {
+  if (supplier.id) {
+    await supabase.from('suppliers').update(supplier).eq('id', supplier.id);
+  } else {
+    await supabase.from('suppliers').insert(supplier);
+  }
+}
+
+export async function deleteSupplier(id: number) {
+  await supabase.from('suppliers').delete().eq('id', id);
+}
+
+// --- فواتير المشتريات (Purchase Invoices) ---
+export async function getPurchaseInvoices(): Promise<any[]> {
+  const { data, error } = await supabase.from('purchase_invoices').select('*').order('date', { ascending: false });
+  if (error) return [];
+  return data || [];
+}
+
+export async function savePurchaseInvoice(invoice: any) {
+  if (invoice.id) {
+    await supabase.from('purchase_invoices').update(invoice).eq('id', invoice.id);
+  } else {
+    await supabase.from('purchase_invoices').insert(invoice);
+  }
+}
+
+export async function deletePurchaseInvoice(id: number) {
+  await supabase.from('purchase_invoices').delete().eq('id', id);
 }
