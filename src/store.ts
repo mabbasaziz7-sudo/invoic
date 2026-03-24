@@ -452,7 +452,9 @@ export async function getOpenShift(cashierId: number): Promise<Shift | null> {
     .select('*')
     .eq('cashier_id', cashierId)
     .eq('status', 'open')
-    .maybeSingle();
+    .order('opened_at', { ascending: false })
+    .limit(1)
+    .single();
   if (error || !data) return null;
   return {
     id: data.id,
@@ -467,13 +469,26 @@ export async function getOpenShift(cashierId: number): Promise<Shift | null> {
   };
 }
 
-export async function openShift(cashierId: number, initialCash: number) {
-  const { error } = await supabase.from('shifts').insert({
+export async function openShift(cashierId: number, initialCash: number): Promise<Shift> {
+  const { data, error } = await supabase.from('shifts').insert({
     cashier_id: cashierId,
     initial_cash: initialCash,
     status: 'open'
-  });
+  }).select().single();
+  
   if (error) throw error;
+  
+  return {
+    id: data.id,
+    cashierId: data.cashier_id,
+    openedAt: data.opened_at,
+    closedAt: data.closed_at,
+    initialCash: Number(data.initial_cash),
+    actualCash: Number(data.actual_cash),
+    expectedCash: Number(data.expected_cash),
+    totalSales: Number(data.total_sales),
+    status: data.status
+  };
 }
 
 export async function closeShift(shiftId: number, actualCash: number, expectedCash: number, totalSales: number) {

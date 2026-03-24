@@ -369,8 +369,7 @@ export default function POS({ currentUser }: POSProps) {
   const openShiftHandler = async () => {
     if (currentUser?.id) {
        try {
-         await openShift(currentUser.id, initialShiftCash);
-         const s = await getOpenShift(currentUser.id);
+         const s = await openShift(currentUser.id, initialShiftCash);
          setCurrentShift(s);
          setShowShiftOpenModal(false);
          enterFullScreen();
@@ -1117,6 +1116,9 @@ export default function POS({ currentUser }: POSProps) {
               {heldInvoices.length > 0 && (
                 <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] w-3 h-3 rounded-full flex items-center justify-center">{heldInvoices.length}</span>
               )}
+            </button>
+            <button onClick={() => {if(currentShift) setShowShiftCloseModal(true); else alert('لا يوجد وردية مفتوحة')}} className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-1 rounded-lg font-bold text-[9px] lg:text-[11px] transition-all" title="تقفيل الوردية الحالية وطباعة تقرير X">
+              🔒 تقفيل
             </button>
             <button onClick={printLastInvoice} className="flex-1 bg-sky-600 hover:bg-sky-700 text-white py-1 rounded-lg font-bold text-[9px] lg:text-[11px] transition-all">
               🖨️ طباعة

@@ -7,6 +7,7 @@ export default function Statistics() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [filterPeriod, setFilterPeriod] = useState('all');
+  const [selectedCashier, setSelectedCashier] = useState('all');
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [showExpenseLog, setShowExpenseLog] = useState(false);
   const [expenseForm, setExpenseForm] = useState({ date: '', category: 'فواتير (كهرباء، ماء، غاز)', description: '', amount: 0 });
@@ -14,6 +15,7 @@ export default function Statistics() {
   const currentUser = getCurrentUser();
   const perms = currentUser ? getUserPermissions(currentUser) : null;
   const showProfit = perms?.viewProfit !== false;
+  const cashiersList = Array.from(new Set(invoices.map(inv => inv.cashier).filter(Boolean)));
   // products available
 
   useEffect(() => {
@@ -36,13 +38,28 @@ export default function Statistics() {
     }
   };
 
-  const filteredInvoices = invoices.filter(inv => filterDate(inv.date));
+  const filteredInvoices = invoices.filter(inv => {
+    const dMatch = filterDate(inv.date);
+    const cMatch = selectedCashier === 'all' || inv.cashier === selectedCashier;
+    return dMatch && cMatch;
+  });
   const filteredExpenses = expenses.filter(exp => filterDate(exp.date));
 
   const totalRevenue = filteredInvoices.reduce((s, i) => s + i.total, 0);
   const totalProfit = filteredInvoices.reduce((s, i) => s + i.profit, 0);
   const totalExpenses = filteredExpenses.reduce((s, e) => s + e.amount, 0);
   const netProfit = totalProfit - totalExpenses;
+
+  // Cashier Performance
+  const cashierStats: Record<string, { count: number, total: number, profit: number }> = {};
+  filteredInvoices.forEach(inv => {
+    const c = inv.cashier || 'غير محدد';
+    if (!cashierStats[c]) cashierStats[c] = { count: 0, total: 0, profit: 0 };
+    cashierStats[c].count += 1;
+    cashierStats[c].total += inv.total;
+    cashierStats[c].profit += inv.profit;
+  });
+  const cashierPerformance = Object.entries(cashierStats).sort((a, b) => b[1].total - a[1].total);
 
   // Sales chart data (by day)
   const salesByDay: Record<string, number> = {};
@@ -138,7 +155,7 @@ export default function Statistics() {
           <div class="header">
             <h1>${settings.storeName}</h1>
             <h2>تقرير الأداء والإحصائيات الشاملّة</h2>
-            <p>الفترة: ${filterPeriod === 'all' ? 'كامل الفترة' : filterPeriod} | تاريخ التقرير: ${new Date().toLocaleDateString()}</p>
+            <p>الفترة: ${filterPeriod === 'all' ? 'كامل الفترة' : filterPeriod} | الكاشير: ${selectedCashier === 'all' ? 'جميع الكاشيرات' : selectedCashier} | تاريخ التقرير: ${new Date().toLocaleDateString()}</p>
           </div>
 
           <div style="display: flex; gap: 15px; margin-bottom: 30px;">
@@ -166,6 +183,14 @@ export default function Statistics() {
              </tbody>
           </table>
 
+          <h3 style="margin-top:30px;">👥 أداء الكاشيرات والمستخدمين</h3>
+          <table>
+             <thead><tr><th>الكاشير</th><th>عدد الفواتير</th><th>إجمالي المبيعات</th>${showProfit ? '<th>إجمالي الأرباح</th>' : ''}</tr></thead>
+             <tbody>
+               ${cashierPerformance.map(([c, data]) => `<tr><td>${c}</td><td>${data.count}</td><td>${data.total.toFixed(2)}</td>${showProfit ? `<td>${data.profit.toFixed(2)}</td>` : ''}</tr>`).join('')}
+             </tbody>
+          </table>
+
           <div class="footer">
             <p>نظام Bakhcha Pro POS - تم الاستخراج بواسطة: ${getCurrentUser()?.fullName || 'مسؤول'}</p>
           </div>
@@ -187,20 +212,38 @@ export default function Statistics() {
         </button>
       </div>
 
-      {/* Filter Period */}
-      <div className="flex gap-0 mb-4 bg-gray-800 rounded-xl overflow-hidden w-fit">
-        {[
-          { id: 'today', label: 'اليوم' },
-          { id: 'week', label: 'هذا الأسبوع' },
-          { id: 'month', label: 'هذا الشهر' },
-          { id: 'year', label: 'هذه السنة' },
-          { id: 'all', label: 'الكل' },
-        ].map(f => (
-          <button key={f.id} onClick={() => setFilterPeriod(f.id)}
-            className={`px-5 py-2 text-sm font-bold transition-all ${filterPeriod === f.id ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}>
-            {f.label}
-          </button>
-        ))}
+      {/* Filters Region */}
+      <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
+        {/* Filter Period */}
+        <div className="flex flex-wrap gap-0 bg-gray-800 rounded-xl overflow-hidden w-full md:w-fit">
+          {[
+            { id: 'today', label: 'اليوم' },
+            { id: 'week', label: 'هذا الأسبوع' },
+            { id: 'month', label: 'هذا الشهر' },
+            { id: 'year', label: 'هذه السنة' },
+            { id: 'all', label: 'الكل' },
+          ].map(f => (
+            <button key={f.id} onClick={() => setFilterPeriod(f.id)}
+              className={`flex-1 md:flex-none px-5 py-2 text-sm font-bold transition-all ${filterPeriod === f.id ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}>
+              {f.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Filter by Cashier */}
+        <div className="flex items-center gap-2 w-full md:w-auto bg-gray-800 px-4 py-2 rounded-xl">
+          <span className="text-gray-400 text-sm font-bold">👤 تصفية بالكاشير:</span>
+          <select 
+            value={selectedCashier} 
+            onChange={(e) => setSelectedCashier(e.target.value)}
+            className="bg-gray-900 border border-gray-700 text-sky-400 text-sm rounded-lg px-3 py-1 font-bold outline-none"
+          >
+            <option value="all">جميع الكاشيرات</option>
+            {cashiersList.map((c, i) => (
+              <option key={i} value={c}>{c}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -256,6 +299,36 @@ export default function Statistics() {
             ))}
             {topProducts.length === 0 && <p className="text-gray-500 text-center py-8">لا توجد بيانات</p>}
           </div>
+        </div>
+      </div>
+
+      {/* Cashier Performance Table */}
+      <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-700 mb-6">
+        <h3 className="text-center text-sky-400 mb-3 font-bold text-lg">👥 تقييم مبيعات الكاشيرات (والمستخدمين)</h3>
+        <div className="overflow-auto border border-gray-700 rounded-lg">
+          <table className="w-full text-sm">
+            <thead className="bg-[#0f1a2e] text-gray-300">
+              <tr>
+                <th className="p-3 text-right border-l border-gray-700">اسم الكاشير</th>
+                <th className="p-3 text-center border-l border-gray-700">عدد الفواتير المنفذة</th>
+                <th className="p-3 text-center border-l border-gray-700">الإيرادات المحصلة (دج)</th>
+                {showProfit && <th className="p-3 text-center">أرباح المبيعات (دج)</th>}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-800">
+              {cashierPerformance.map(([name, data], i) => (
+                <tr key={i} className="hover:bg-gray-800 transition-colors">
+                  <td className="p-3 font-bold text-white border-l border-gray-700">{name}</td>
+                  <td className="p-3 text-center text-gray-400 border-l border-gray-700">{data.count} فاتورة</td>
+                  <td className="p-3 text-center font-bold text-green-400 text-lg border-l border-gray-700">{data.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                  {showProfit && <td className="p-3 text-center font-bold text-blue-400">{data.profit.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>}
+                </tr>
+              ))}
+              {cashierPerformance.length === 0 && (
+                <tr><td colSpan={showProfit ? 4 : 3} className="p-6 text-center text-gray-500">لا توجد مبيعات في هذه الفترة</td></tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 

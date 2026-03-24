@@ -7,11 +7,13 @@ export default function InvoiceLog() {
   const [search, setSearch] = useState('');
   const [dateFilter, setDateFilter] = useState('');
   const [paymentFilter, setPaymentFilter] = useState<'all' | PaymentMethod>('all');
+  const [cashierFilter, setCashierFilter] = useState('all');
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const settings = getSettings();
   const currentUser = getCurrentUser();
   const perms = currentUser ? getUserPermissions(currentUser) : null;
   const showProfit = perms?.viewProfit !== false;
+  const cashiersList = Array.from(new Set(invoices.map(inv => inv.cashier).filter(Boolean)));
 
   useEffect(() => {
     const load = async () => {
@@ -24,7 +26,8 @@ export default function InvoiceLog() {
     const matchSearch = !search || inv.id.includes(search) || inv.client.includes(search);
     const matchDate = !dateFilter || inv.date === dateFilter;
     const matchPayment = paymentFilter === 'all' || (inv.paymentMethod || 'cash') === paymentFilter;
-    return matchSearch && matchDate && matchPayment;
+    const matchCashier = cashierFilter === 'all' || inv.cashier === cashierFilter;
+    return matchSearch && matchDate && matchPayment && matchCashier;
   });
 
   const totalSales = filtered.reduce((s, i) => s + i.total, 0);
@@ -207,7 +210,7 @@ export default function InvoiceLog() {
         </div>
         ${showLogo ? `<img class="logo" src="${settings.logo}" alt="logo" onerror="this.style.display='none'" />` : ''}
       </div>
-      <h3 style="text-align:center;">سجل المبيعات والفواتير</h3>
+      <h3 style="text-align:center;">سجل المبيعات والفواتير ${cashierFilter === 'all' ? '' : `(كاشير: ${cashierFilter})`}</h3>
       <table>
       <tr><th>الفاتورة</th><th>التاريخ</th><th>العميل</th><th>الإجمالي</th><th>الربح</th><th>طريقة الدفع</th><th>الكاشير</th></tr>
       ${filtered.map(i => {
@@ -244,6 +247,16 @@ export default function InvoiceLog() {
           <option value="cash">💵 نقدي فقط</option>
           <option value="visa">💳 فيزا فقط</option>
           <option value="mixed">💵💳 مختلط فقط</option>
+        </select>
+        <select 
+          value={cashierFilter} 
+          onChange={(e) => setCashierFilter(e.target.value)}
+          className="bg-gray-900 border border-gray-600 text-sky-400 font-bold rounded-lg px-3 py-2 outline-none"
+        >
+          <option value="all">👥 جميع الكاشيرات</option>
+          {cashiersList.map((c, i) => (
+            <option key={i} value={c}>{c}</option>
+          ))}
         </select>
         <button onClick={printInvoices} className="bg-sky-600 hover:bg-sky-700 text-white px-6 py-2 rounded-xl font-bold">طباعة السجل 🖨️</button>
       </div>
