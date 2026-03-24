@@ -380,8 +380,7 @@ export default function POS({ currentUser }: POSProps) {
     }
   };
 
-  const printShiftReport = (s: Shift) => {
-    const printWindow = window.open('', '_blank', 'width=450,height=700');
+  const printShiftReport = (s: Shift, printWindow: Window | null) => {
     if (!printWindow) return;
 
     const shiftInvoices = allInvoicesState.filter(inv => inv.shiftId === s.id);
@@ -447,14 +446,17 @@ export default function POS({ currentUser }: POSProps) {
 
   const closeShiftHandler = async () => {
     if (currentShift?.id) {
+       // Open window synchronously to bypass popup blockers
+       const printWindow = window.open('', '_blank', 'width=450,height=700');
        try {
          await closeShift(currentShift.id, actualShiftCash, currentShift.expectedCash, currentShift.totalSales);
-         printShiftReport(currentShift);
+         printShiftReport(currentShift, printWindow);
          alert('تم تقفيل الوردية بنجاح ✅');
          setCurrentShift(null);
          setShowShiftCloseModal(false);
          setShowShiftOpenModal(true); // Open new shift immediately
        } catch (err: any) { 
+         if (printWindow) printWindow.close();
          console.error('Shift close error:', err);
          alert(`خطأ في تقفيل الوردية: ${err.message || 'حدث خطأ غير متوقع'}`); 
        }
@@ -515,8 +517,9 @@ export default function POS({ currentUser }: POSProps) {
     };
 
     try {
-      // 1. Save INVOICE to Supabase
+      // 3. Save Invoice
       await saveInvoice(invoice);
+      setAllInvoicesState(prev => [...prev, invoice]);
 
       // 2. Handle Client Debt in Supabase
       if (actualPaid < total && selectedClient !== 'عميل نقدي') {
