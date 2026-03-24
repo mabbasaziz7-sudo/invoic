@@ -20,6 +20,7 @@ const menuItems: { id: PageType; label: string; shortLabel: string; emoji: strin
   { id: 'inventory', label: 'المخزون والجرد', shortLabel: 'الجرد', emoji: '📊', color: 'bg-indigo-500 hover:bg-indigo-600', permKey: 'inventory' },
   { id: 'statistics', label: 'الإحصاءات', shortLabel: 'الإحصاءات', emoji: '📊', color: 'bg-sky-500 hover:bg-sky-600', permKey: 'statistics' },
   { id: 'debts', label: 'ديون العملاء', shortLabel: 'الديون', emoji: '💰', color: 'bg-sky-500 hover:bg-sky-600', permKey: 'debts' },
+  { id: 'clients', label: 'العملاء والولاء', shortLabel: 'الولاء', emoji: '🌟', color: 'bg-yellow-600 hover:bg-yellow-700', permKey: 'debts' },
   { id: 'invoices', label: 'سجل الفواتير', shortLabel: 'الفواتير', emoji: '🧾', color: 'bg-sky-500 hover:bg-sky-600', permKey: 'invoices' },
   { id: 'profit', label: 'الأرباح', shortLabel: 'الأرباح', emoji: '📈', color: 'bg-green-700 hover:bg-green-800', permKey: 'viewProfit' },
   { id: 'returns', label: 'المرتجعات', shortLabel: 'المرتجعات', emoji: '🔄', color: 'bg-orange-500 hover:bg-orange-600', permKey: 'returns' },

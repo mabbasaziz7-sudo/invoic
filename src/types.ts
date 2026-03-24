@@ -207,4 +207,4 @@ export interface Shift {
   status: 'open' | 'closed';
 }
 
-export type PageType = 'pos' | 'products' | 'invoices' | 'statistics' | 'settings' | 'users' | 'inventory' | 'promotions' | 'daily-closing' | 'debts' | 'returns' | 'customer-display' | 'shift-monitor' | 'profit';
+export type PageType = 'pos' | 'products' | 'invoices' | 'statistics' | 'settings' | 'users' | 'inventory' | 'promotions' | 'daily-closing' | 'debts' | 'returns' | 'customer-display' | 'shift-monitor' | 'profit' | 'clients';
