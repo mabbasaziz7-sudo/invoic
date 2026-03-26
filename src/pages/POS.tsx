@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Product, CartItem, Invoice, Client, PaymentMethod, User, Coupon, ProductOffer, Shift } from '../types';
-import { getProducts, saveProduct, getClients, saveClient, getInvoices, saveInvoice, getSettings, getCategories, saveCartDisplay, getUserPermissions, getCoupons, getProductOffers, getOpenShift, openShift, closeShift } from '../store';
+import { getProducts, saveProduct, getClients, saveClient, getInvoices, saveInvoice, getSettings, getCategories, saveCartDisplay, getUserPermissions, getCoupons, getProductOffers, logoutUser, getOpenShift, openShift, closeShift } from '../store';
 
 interface POSProps {
   currentUser?: User | null;
@@ -8,7 +8,6 @@ interface POSProps {
 
 export default function POS({ currentUser }: POSProps) {
   const perms = currentUser ? getUserPermissions(currentUser) : null;
-  console.log(perms); // Using perms to avoid lint error
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [barcode, setBarcode] = useState('');
@@ -88,7 +87,6 @@ export default function POS({ currentUser }: POSProps) {
   const [deliveryDriver, setDeliveryDriver] = useState('');
   const [deliveryPhone, setDeliveryPhone] = useState('');
   const [deliveryNote, setDeliveryNote] = useState('');
-  const [showMobileCart, setShowMobileCart] = useState(false);
 
   const barcodeRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -130,13 +128,11 @@ export default function POS({ currentUser }: POSProps) {
     };
   }, [currentUser, currentShift]);
 
-  const toggleFullScreen = () => {
+  const enterFullScreen = () => {
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen().catch(err => {
         console.error(`Error attempting to enable full-screen mode: ${err.message}`);
       });
-    } else {
-      document.exitFullscreen();
     }
   };
 
@@ -376,6 +372,7 @@ export default function POS({ currentUser }: POSProps) {
          const s = await openShift(currentUser.id, initialShiftCash);
          setCurrentShift(s);
          setShowShiftOpenModal(false);
+         enterFullScreen();
        } catch (err: any) { 
          console.error('Shift open error:', err);
          alert(`خطأ في فتح الوردية: ${err.message || 'تأكد من تحديث قاعدة البيانات'}`); 
@@ -586,6 +583,8 @@ export default function POS({ currentUser }: POSProps) {
       }
 
       alert('تمت عملية البيع بنجاح! ✅');
+      // Re-enter full screen after print
+      setTimeout(enterFullScreen, 1000);
     } catch (err) {
       console.error('Sale confirmation failed:', err);
       alert('فشل إتمام العملية: ' + (err as any).message);
@@ -917,164 +916,290 @@ export default function POS({ currentUser }: POSProps) {
   // Quick amount buttons for payment
   const quickAmounts = [100, 200, 500, 1000, 2000, 5000];
 
-  const CartContent = () => (
-    <div className="flex flex-col h-full bg-[#0d1425] border-l border-gray-800">
-      {/* Invoice Header */}
-      <div className="p-3 bg-gray-900/60 border-b border-gray-800">
-        <div className="flex justify-between items-center gap-2">
-          <div className="flex items-center gap-2 flex-1">
-            <button onClick={() => setShowAddClientModal(true)} className="bg-teal-600 hover:bg-teal-500 text-white w-8 h-8 rounded-lg text-lg font-bold transition-all shadow-lg">+</button>
-            <select
-              value={selectedClient}
-              onChange={(e) => { setSelectedClient(e.target.value); setUsePoints(false); }}
-              className="flex-1 bg-gray-800 text-white border border-gray-700 rounded-lg px-2 py-1.5 text-xs outline-none focus:ring-1 ring-teal-500"
-            >
-              <option value="عميل نقدي">💵 عميل نقدي</option>
-              {clients.map(c => (
-                <option key={c.id} value={c.name}>
-                  👤 {c.name}{c.points > 0 ? ` | 🌟 ${c.points}` : ''}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="flex gap-1">
-             <button onClick={printLastInvoice} className="bg-gray-800 hover:bg-gray-700 text-white w-7 h-7 rounded-lg flex items-center justify-center text-[10px]" title="آخر فاتورة">🖨️</button>
-             <button onClick={openCustomerDisplay} className="bg-gray-800 hover:bg-gray-700 text-white w-7 h-7 rounded-lg flex items-center justify-center text-[10px]" title="شاشة العميل">📺</button>
-          </div>
-          <div className="flex flex-col items-end min-w-[50px]">
-             <span className="text-[8px] text-gray-500">{today}</span>
-             <span className="text-yellow-500 font-bold text-[9px]">{invoiceId.split('-')[1]?.substring(0, 6)}</span>
+  return (
+    <div className="flex flex-col lg:flex-row h-screen" dir="rtl">
+      {/* Left side - Cart & Totals (Moved to Left in RTL by using order-2) */}
+      <div className="w-full lg:w-1/2 bg-[#0f1a2e] flex flex-col border-l border-gray-700 order-2 lg:order-2 max-h-[50vh] lg:max-h-none">
+        {/* Invoice Header */}
+        <div className="p-1 lg:p-1.5 border-b border-gray-700 bg-gray-900/30">
+          <div className="flex justify-between items-center gap-2">
+            <div className="flex items-center gap-1.5 flex-1">
+              <button onClick={() => setShowAddClientModal(true)} className="bg-green-600 hover:bg-green-700 text-white w-6 h-6 rounded text-xs font-bold">+</button>
+              <select value={selectedClient} onChange={(e) => { setSelectedClient(e.target.value); setUsePoints(false); }} className="flex-1 bg-gray-800 text-white border border-gray-700 rounded px-2 py-0.5 text-[10px] lg:text-xs">
+                <option value="عميل نقدي">💵 عميل نقدي</option>
+                {clients.map(c => (
+                  <option key={c.id} value={c.name}>
+                    👤 {c.name}{c.points > 0 ? ` | 🌟 ${c.points} نقطة` : ''}{c.debt > 0 ? ` | 💸 ${c.debt}دج` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {selectedClient !== 'عميل نقدي' && (
+              <div className="flex items-center gap-1">
+                <button 
+                  onClick={() => setUsePoints(!usePoints)}
+                  className={`px-2 py-0.5 rounded text-[9px] font-bold transition-all ${usePoints ? 'bg-yellow-500 text-black' : 'bg-gray-700 text-yellow-400 border border-yellow-500/30'}`}
+                >
+                  {usePoints ? '✅ تم الخصم' : '🌟 تبديل نقاط'}
+                </button>
+              </div>
+            )}
+            <div className="flex flex-col items-end shrink-0">
+               <span className="text-[9px] lg:text-[10px] text-gray-500">{today}</span>
+               <span className="text-yellow-400 font-bold text-[10px] lg:text-xs">{invoiceId}</span>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Cart Items List */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-2 bg-black/10">
-        {cart.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-gray-600 space-y-2">
-            <span className="text-4xl">🛒</span>
-            <p className="text-sm font-bold">السلة فارغة</p>
+        {/* Cart Table */}
+        <div className="flex-1 overflow-auto">
+          <table className="w-full text-xs lg:text-sm">
+            <thead className="bg-gray-800 sticky top-0">
+              <tr>
+                <th className="p-2 text-center">إجراء</th>
+                <th className="p-2 text-center">الإجمالي</th>
+                <th className="p-2 text-center">الكمية</th>
+                <th className="p-2 text-center">السعر</th>
+                <th className="p-2 text-right">المنتج</th>
+                <th className="p-2 text-center w-8">#</th>
+              </tr>
+            </thead>
+            <tbody>
+              {cart.map((item, idx) => (
+                <tr key={item.product.id} className="border-b border-gray-800 hover:bg-gray-800/50">
+                  <td className="p-1.5 text-center">
+                    <div className="flex gap-1 justify-center">
+                      <button onClick={() => removeFromCart(item.product.id)} className="bg-red-600 hover:bg-red-700 text-white w-6 h-6 rounded text-[10px] font-bold transition-colors">✕</button>
+                      <button 
+                        onClick={() => { setEditingCartItem(item.product.id); setTempItemPrice(item.overridePrice || item.product.sellPrice); setShowCartItemModal(true); }}
+                        className="bg-yellow-600 hover:bg-yellow-700 text-white w-6 h-6 rounded text-[10px] font-bold transition-colors"
+                        title="خصم / جملة"
+                      >
+                        ⚡
+                      </button>
+                      <button onClick={() => updateQuantity(item.product.id, -1)} className="bg-red-500 hover:bg-red-600 text-white w-6 h-6 rounded text-[10px] font-bold transition-colors">-</button>
+                      <button onClick={() => updateQuantity(item.product.id, 1)} className="bg-green-500 hover:bg-green-600 text-white w-6 h-6 rounded text-[10px] font-bold transition-colors">+</button>
+                    </div>
+                  </td>
+                  <td className="p-1.5 text-center font-bold text-yellow-300">
+                    {((item.overridePrice || item.product.sellPrice) * item.quantity).toFixed(2)}
+                  </td>
+                  <td className="p-1.5 text-center">
+                    <span className="bg-gray-700 px-2 py-0.5 rounded font-bold text-white">{item.quantity}</span>
+                  </td>
+                  <td className="p-1.5 text-center">
+                    {item.overridePrice ? (
+                       <span className="text-orange-400 font-bold underline">{item.overridePrice.toFixed(2)}</span>
+                    ) : (
+                       item.product.sellPrice.toFixed(2)
+                    )}
+                  </td>
+                  <td className="p-1.5 text-right font-medium max-w-[200px] lg:max-w-[300px] truncate">{item.product.name}</td>
+                  <td className="p-1.5 text-center text-gray-500">{idx + 1}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {cart.length === 0 && (
+            <div className="text-center text-gray-500 py-8 text-sm">
+              🛒 السلة فارغة - أضف منتجات للبدء
+            </div>
+          )}
+        </div>
+
+        {/* Totals & Payment */}
+        <div className="p-1 lg:p-1.5 border-t border-gray-700 space-y-1">
+          <div className="flex items-center gap-1 lg:gap-2">
+            <input type="text" readOnly value={subtotal.toFixed(2)} className="flex-1 bg-gray-800 text-white border border-gray-600 rounded px-2 py-0.5 text-xs text-left" />
+            <span className="text-xs font-bold whitespace-nowrap">الإجمالي الفرعي:</span>
           </div>
-        ) : (
-          cart.map((item) => (
-            <div key={item.product.id} className="bg-gray-800/40 border border-gray-700/50 rounded-xl p-2 flex items-center gap-2 hover:bg-gray-800/60 transition-all">
-              <div className="flex-1 overflow-hidden">
-                <p className="text-xs font-bold text-gray-100 truncate">{item.product.name}</p>
-                <div className="flex justify-between items-center mt-1">
-                   <p className="text-[10px] text-teal-400 font-black">{item.overridePrice || item.product.sellPrice} <span className="text-[8px] text-gray-500">{settings.currency || 'دج'}</span></p>
-                   <p className="text-[10px] text-gray-400">× {item.quantity}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-1">
-                 <button onClick={() => updateQuantity(item.product.id!, -1)} className="w-6 h-6 bg-gray-700 hover:bg-gray-600 rounded-md text-xs flex items-center justify-center">-</button>
-                 <button onClick={() => updateQuantity(item.product.id!, 1)} className="w-6 h-6 bg-gray-700 hover:bg-gray-600 rounded-md text-xs flex items-center justify-center">+</button>
-              </div>
-              <div className="text-right min-w-[50px]">
-                 <p className="text-xs font-black text-yellow-500 tracking-tighter">{((item.overridePrice || item.product.sellPrice) * item.quantity).toFixed(0)}</p>
-                 <button onClick={() => removeFromCart(item.product.id!)} className="text-[9px] text-red-500 font-bold hover:underline">حذف</button>
+          <div className="flex items-center gap-1 lg:gap-2">
+            <input type="number" value={tax} onChange={(e) => setTax(Number(e.target.value))} className="w-12 lg:w-16 bg-red-600 text-white border border-red-500 rounded px-1 py-0.5 text-xs text-center font-bold" />
+            <span className="text-xs">الضريبة:</span>
+            <input type="number" value={discount} onChange={(e) => setDiscount(Number(e.target.value))} disabled={perms ? !perms.giveDiscount : false} className={`w-12 lg:w-16 bg-gray-800 text-white border border-gray-600 rounded px-1 py-0.5 text-xs text-center ${perms && !perms.giveDiscount ? 'opacity-50 cursor-not-allowed' : ''}`} />
+            <span className="text-xs">الخصم:</span>
+          </div>
+          <div className="flex items-center gap-1 lg:gap-2">
+            <input type="text" readOnly value={total.toFixed(2)} className="flex-1 bg-yellow-500/20 text-yellow-400 border-2 border-yellow-500 rounded px-2 py-0.5 text-base lg:text-lg font-black text-left" />
+            <span className="text-xs font-bold whitespace-nowrap">الإجمالي:</span>
+          </div>
+          {totalSaved > 0.01 && (
+            <div className="bg-green-900/30 border border-green-500/40 rounded-lg px-2 py-1 text-center animate-pulse">
+              <span className="text-green-400 text-xs font-bold">🎉 لقد وفّرت: {totalSaved.toFixed(2)} {settings.currency}</span>
+            </div>
+          )}
+
+          {/* Payment Method Selection */}
+          <div className="bg-gray-800/80 rounded-xl p-2 border border-gray-600">
+            <div className="flex items-center gap-1 mb-2">
+              <span className="text-sm font-bold text-gray-300 whitespace-nowrap">طريقة الدفع:</span>
+              <div className="flex gap-1 flex-1">
+                <button 
+                  onClick={() => setPaymentMethod('cash')} 
+                  className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${paymentMethod === 'cash' ? 'bg-green-600 text-white ring-2 ring-green-400' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}`}
+                >
+                  💵 نقدي
+                </button>
+                <button 
+                  onClick={() => setPaymentMethod('visa')} 
+                  className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${paymentMethod === 'visa' ? 'bg-blue-600 text-white ring-2 ring-blue-400' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}`}
+                >
+                  💳 فيزا
+                </button>
+                <button 
+                  onClick={() => setPaymentMethod('mixed')} 
+                  className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${paymentMethod === 'mixed' ? 'bg-purple-600 text-white ring-2 ring-purple-400' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}`}
+                >
+                  💵💳 مختلط
+                </button>
               </div>
             </div>
-          ))
-        )}
-      </div>
 
-      {/* Numerical Keypad - The 'Old' element */}
-      <div className="bg-gray-900/80 p-2 grid grid-cols-4 gap-1 border-y border-gray-800">
-        {[1,2,3,4,5,6,7,8,9,0,'.','C'].map(val => (
-          <button 
-            key={val} 
-            className={`h-10 rounded-lg text-sm font-bold transition-all active:scale-90 ${val === 'C' ? 'bg-red-500/20 text-red-400 hover:bg-red-500' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}
-          >
-            {val}
-          </button>
-        ))}
-      </div>
-
-      {/* Totals Section */}
-      <div className="p-3 bg-indigo-950/20 border-t border-indigo-900/30">
-        <div className="space-y-1 mb-3">
-          <div className="flex justify-between text-[11px] text-gray-400">
-             <span>المجموع الفرعي</span>
-             <span>{subtotal.toFixed(2)}</span>
+            {paymentMethod === 'mixed' ? (
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <input type="number" value={cashAmount} onChange={(e) => setCashAmount(Number(e.target.value))} className="w-28 bg-green-900/50 text-green-400 border border-green-600 rounded px-2 py-1 text-sm text-center font-bold" />
+                  <span className="text-sm text-green-400">💵 نقدي:</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input type="number" value={visaAmount} onChange={(e) => setVisaAmount(Number(e.target.value))} className="w-28 bg-blue-900/50 text-blue-400 border border-blue-600 rounded px-2 py-1 text-sm text-center font-bold" />
+                  <span className="text-sm text-blue-400">💳 فيزا:</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`text-sm font-bold ${(cashAmount + visaAmount) >= total ? 'text-green-400' : 'text-red-400'}`}>
+                    المجموع: {(cashAmount + visaAmount).toFixed(2)} {settings.currency}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span className={`text-sm font-bold ${remaining < 0 ? 'text-red-400' : 'text-green-400'}`}>{remaining.toFixed(2)}</span>
+                <span className="text-xs text-gray-400">الباقي:</span>
+                <input 
+                  type="number" 
+                  value={paid} 
+                  onChange={(e) => setPaid(Number(e.target.value))} 
+                  className="w-28 bg-gray-700 text-white border border-gray-500 rounded px-2 py-1 text-sm text-center font-bold" 
+                  placeholder="المبلغ المدفوع"
+                />
+                <span className="text-sm whitespace-nowrap">المدفوع:</span>
+              </div>
+            )}
           </div>
-          <div className="flex justify-between text-[11px] text-gray-400">
-             <span>الخصم</span>
-             <span>{discount.toFixed(2)}</span>
-          </div>
-          <div className="flex justify-between text-base font-black text-white pt-1 border-t border-gray-800">
-             <span className="text-teal-400">الإجمالي</span>
-             <span className="text-yellow-400">{total.toFixed(0)} <small className="text-[10px]">{settings.currency || 'دج'}</small></span>
-          </div>
-        </div>
-        
-        <div className="flex gap-2">
-           <button onClick={() => cancelSale()} className="flex-1 bg-red-600/10 text-red-500 hover:bg-red-600 hover:text-white py-2 rounded-xl text-xs font-bold transition-all">إلغاء</button>
-           <button 
-            onClick={openPaymentModal} 
-            disabled={cart.length === 0}
-            className="flex-[2] bg-teal-600 hover:bg-teal-500 text-white py-3 rounded-xl font-black text-sm shadow-lg shadow-teal-900/20 transition-all flex items-center justify-center gap-2"
-           >
-             🚀 إتمام البيع
-           </button>
-        </div>
-      </div>
-    </div>
-  );
 
-
-  return (
-    <div className="flex h-screen bg-[#0a0f1e] text-gray-100 overflow-hidden" dir="rtl">
-      {/* Sidebar - Cart Area (Placed first for Right-side in RTL) */}
-      <div className="w-[350px] xl:w-[400px] hidden lg:flex flex-col border-l border-gray-800 bg-[#0d1425] shadow-2xl">
-        <CartContent />
-      </div>
-
-      {/* Product Content Area (Placed second for Left-side in RTL) */}
-      <div className="flex-1 flex flex-col h-full overflow-hidden bg-[#0a0f1e]">
-        {/* Top Toolbar */}
-        <div className="bg-[#111827] border-b border-gray-800 p-3 flex items-center gap-3 z-30">
-          <div className="relative flex-1">
+          {/* Auto-print toggle */}
+          <label className="flex items-center gap-2 cursor-pointer">
             <input 
-              type="text" 
-              placeholder="🔍 ابحث عن منتج..." 
-              value={searchProduct} 
-              onChange={(e) => setSearchProduct(e.target.value)}
-              className="w-full bg-gray-900/50 text-white rounded-xl pr-10 pl-4 py-2 text-sm border border-gray-800 focus:border-teal-500 outline-none transition-all shadow-inner"
+              type="checkbox" 
+              checked={autoPrint} 
+              onChange={(e) => setAutoPrint(e.target.checked)} 
+              className="w-4 h-4 rounded accent-green-500" 
             />
+            <span className="text-xs text-gray-400">🖨️ طباعة الفاتورة تلقائياً عند الدفع</span>
+          </label>
+
+          <div className="flex gap-1.5 mb-1.5">
+            <button onClick={openPaymentModal} className="flex-1 bg-green-600 hover:bg-green-700 text-white py-1.5 lg:py-2 rounded-xl font-bold text-xs lg:text-sm transition-all shadow-lg shadow-green-900/50">
+              ✅ تأكيد ودفع
+            </button>
+            <button onClick={cancelSale} className="flex-1 bg-orange-600 hover:bg-orange-700 text-white py-1.5 lg:py-2 rounded-xl font-bold text-xs lg:text-sm transition-all text-center">
+              ❌ إلغاء
+            </button>
           </div>
-          
+
+          <div className="flex gap-1 mb-1">
+            <button onClick={() => holdInvoice(false)} className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white py-1 rounded-lg font-bold text-[9px] lg:text-[11px] transition-all" title="تعليق الفاتورة">
+              ⏸️ تعليق
+            </button>
+            <button onClick={() => setShowDeliveryModal(true)} className="flex-1 bg-cyan-600 hover:bg-cyan-700 text-white py-1 rounded-lg font-bold text-[9px] lg:text-[11px] transition-all" title="توصيل">
+              🚚 توصيل
+            </button>
+            <button onClick={() => setShowHeldInvoices(true)} className="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-1 rounded-lg font-bold text-[9px] lg:text-[11px] transition-all relative">
+              📋 معلقة
+              {heldInvoices.length > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] w-3 h-3 rounded-full flex items-center justify-center">{heldInvoices.length}</span>
+              )}
+            </button>
+            <button onClick={() => {if(currentShift) setShowShiftCloseModal(true); else alert('لا يوجد وردية مفتوحة')}} className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-1 rounded-lg font-bold text-[9px] lg:text-[11px] transition-all" title="تقفيل الوردية الحالية وطباعة تقرير X">
+              🔒 تقفيل
+            </button>
+            <button onClick={printLastInvoice} className="flex-1 bg-sky-600 hover:bg-sky-700 text-white py-1 rounded-lg font-bold text-[9px] lg:text-[11px] transition-all">
+              🖨️ طباعة
+            </button>
+            <button onClick={openCustomerDisplay} className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-1 rounded-lg font-bold text-[9px] lg:text-[11px] transition-all">
+              📺 شاشة
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Right side - Products (First in RTL to be on Right) */}
+      <div className="w-full lg:w-1/2 flex flex-col bg-[#16213e] overflow-hidden order-1 lg:order-1">
+        {/* Total Display */}
+        <div className="flex items-center gap-2 lg:gap-4 p-2 lg:p-3 bg-[#0d1b2a]">
+          <div className="border-2 border-yellow-500 rounded-xl px-3 lg:px-6 py-1 lg:py-2">
+            <span className="text-yellow-400 text-2xl lg:text-4xl font-black font-mono">{total.toFixed(2)}</span>
+          </div>
+          <div className="bg-gray-800 px-2 lg:px-4 py-1 lg:py-2 rounded-xl border border-gray-600">
+            <span className="text-white font-bold text-xs lg:text-base">إجمالي البيع:</span>
+          </div>
+          <div className={`px-2 lg:px-3 py-1 lg:py-2 rounded-xl font-bold text-[10px] lg:text-sm ${
+            paymentMethod === 'cash' ? 'bg-green-700/50 text-green-300 border border-green-600' :
+            paymentMethod === 'visa' ? 'bg-blue-700/50 text-blue-300 border border-blue-600' :
+            'bg-purple-700/50 text-purple-300 border border-purple-600'
+          }`}>
+            {getPaymentMethodLabel(paymentMethod)}
+          </div>
+        </div>
+
+        {/* Barcode Input & Category */}
+        <div className="flex items-center gap-1 lg:gap-2 p-2 lg:p-3 bg-[#0d1b2a] flex-wrap">
+          <button 
+            onClick={() => setShowQuickAddProduct(true)}
+            className="bg-green-700 hover:bg-green-800 text-white px-2 lg:px-3 py-1.5 lg:py-2 rounded-lg text-[10px] lg:text-xs font-bold transition-all"
+          >
+            + منتج سريع
+          </button>
+          <select
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value)}
+            className="bg-yellow-500 text-black font-bold px-2 lg:px-3 py-1.5 lg:py-2 rounded-lg text-xs lg:text-sm"
+          >
+            {categories.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
           <input
             ref={barcodeRef}
             type="text"
             value={barcode}
             onChange={(e) => setBarcode(e.target.value)}
             onKeyDown={handleBarcode}
-            placeholder="الباركود..."
-            className="w-[100px] lg:w-[150px] bg-gray-800 text-white rounded-xl px-3 py-2 text-xs border border-gray-700 focus:border-yellow-500 outline-none transition-all"
+            placeholder="الباركود + Enter..."
+            className="flex-1 min-w-[120px] bg-gray-900 text-white border border-gray-600 rounded-lg px-2 lg:px-3 py-1.5 lg:py-2 text-xs lg:text-sm"
           />
-
-          <div className="flex gap-2">
-            <button onClick={() => setShowQuickAddProduct(true)} className="bg-teal-600 hover:bg-teal-500 text-white w-9 h-9 rounded-xl flex items-center justify-center font-bold shadow-lg" title="منتج سريع">+</button>
-            <button onClick={() => setShowHeldInvoices(true)} className="bg-amber-600 hover:bg-amber-500 text-white w-9 h-9 rounded-xl flex items-center justify-center relative shadow-lg" title="المعلق">
-              📋
-              {heldInvoices.length > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-[8px] w-4 h-4 rounded-full flex items-center justify-center font-bold animate-pulse">{heldInvoices.length}</span>}
-            </button>
-            <button onClick={() => toggleFullScreen()} className="hidden sm:flex bg-gray-800 hover:bg-gray-700 text-white w-9 h-9 rounded-xl items-center justify-center shadow-lg" title="كامل الشاشة">🖥️</button>
-            <button onClick={() => {if(currentShift) setShowShiftCloseModal(true); else alert('لا يوجد وردية مفتوحة')}} className="bg-red-600/20 text-red-500 hover:bg-red-600 hover:text-white w-9 h-9 rounded-xl flex items-center justify-center shadow-lg" title="تقفيل">🔒</button>
-          </div>
         </div>
 
-        {/* Categories Tabs */}
-        <div className="px-3 py-2 bg-[#0f172a]/50 flex gap-2 overflow-x-auto no-scrollbar shadow-inner">
-          <button
-            onClick={() => setSelectedCategory('الكل')}
-            className={`whitespace-nowrap px-4 py-1.5 rounded-xl text-xs font-black transition-all ${selectedCategory === 'الكل' ? 'bg-teal-600 text-white shadow-lg shadow-teal-900/20' : 'bg-gray-800 text-gray-500 hover:bg-gray-700'}`}
-          >📦 الكل</button>
+        {/* Search Input */}
+        <div className="px-3 pb-2 bg-[#0d1b2a]">
+          <input
+            type="text"
+            value={searchProduct}
+            onChange={(e) => setSearchProduct(e.target.value)}
+            placeholder="🔍 بحث عن منتج بالاسم..."
+            className="w-full bg-gray-800 text-white border border-gray-600 rounded-lg px-3 py-1.5 text-sm"
+          />
+        </div>
+
+        {/* Category Tabs */}
+        <div className="flex gap-2 px-3 py-2 overflow-x-auto">
           {categories.map(cat => (
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat)}
-              className={`whitespace-nowrap px-4 py-1.5 rounded-xl text-xs font-black transition-all ${selectedCategory === cat ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20' : 'bg-gray-800 text-gray-500 hover:bg-gray-700'}`}
+              className={`px-4 py-1.5 rounded-lg text-sm font-bold whitespace-nowrap transition-all ${
+                selectedCategory === cat
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+              }`}
             >
               {cat}
             </button>
@@ -1082,54 +1207,52 @@ export default function POS({ currentUser }: POSProps) {
         </div>
 
         {/* Product Grid */}
-        <div className="flex-1 overflow-y-auto p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-5 gap-4 content-start custom-scrollbar">
+        <div className="flex-1 overflow-auto p-2 lg:p-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 lg:gap-3 auto-rows-min">
           {filteredProducts.map(product => (
             <div
               key={product.id}
               onClick={() => addToCart(product)}
-              className={`relative group bg-[#1e293b] border border-gray-800 hover:border-teal-500/50 hover:bg-[#233149] rounded-2xl p-3 shadow-xl transition-all cursor-pointer flex flex-col h-[180px] hover:-translate-y-1 ${product.quantity <= 0 ? 'grayscale opacity-40' : ''}`}
+              className={`bg-gray-800 rounded-xl cursor-pointer hover:ring-2 hover:ring-yellow-400 transition-all overflow-hidden group ${product.quantity <= 0 ? 'opacity-40' : ''}`}
             >
-              <div className="flex-1 flex flex-col items-center justify-center text-center">
-                <span className="text-4xl mb-2 group-hover:scale-110 transition-transform">{product.image ? '📸' : (categories.find(c => c === product.category) ? '🏷️' : '📦')}</span>
-                <h3 className="text-[11px] font-black text-gray-200 line-clamp-2 leading-tight">{product.name}</h3>
+              <div className="h-16 lg:h-24 bg-gray-700 flex items-center justify-center overflow-hidden">
+                {product.image ? (
+                  <img 
+                    src={product.image} 
+                    alt={product.name} 
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).parentElement!.innerHTML = '<span class="text-4xl opacity-50">📦</span>'; }}
+                  />
+                ) : (
+                  <span className="text-4xl opacity-50 group-hover:opacity-80 transition-all">📦</span>
+                )}
               </div>
-              <div className="mt-3 w-full bg-black/40 rounded-xl py-2 px-3 flex justify-between items-center ring-1 ring-gray-700/50">
-                <span className="text-teal-400 font-black text-base tracking-tighter">{product.sellPrice.toFixed(0)}</span>
-                <span className="text-[8px] text-gray-500 font-bold uppercase">{settings.currency || 'دج'}</span>
+              <div className="p-2">
+                <p className="text-white text-xs font-bold text-center truncate">{product.name}</p>
+                <div className="flex flex-col items-center mt-1">
+                  <div className="flex items-center gap-1">
+                    {(product.discountPrice || 0) > 0 || (product.discountPercent || 0) > 0 ? (
+                      <>
+                        <span className="text-green-400 font-bold text-xs">
+                          {product.discountPrice || (product.sellPrice * (1 - (product.discountPercent || 0) / 100)).toFixed(2)}
+                        </span>
+                        <span className="text-gray-500 text-[10px] line-through">{product.sellPrice}</span>
+                      </>
+                    ) : (
+                      <span className="text-green-400 font-bold text-xs">{product.sellPrice}</span>
+                    )}
+                  </div>
+                  <div className="flex justify-between w-full mt-1">
+                    <span className={`text-[10px] ${product.quantity <= product.minStock ? 'text-red-400 font-bold' : 'text-gray-400'}`}>مخزون: {product.quantity}</span>
+                    {(product.bulkQuantity || 0) > 0 && (
+                      <span className="bg-blue-900/40 text-blue-300 text-[8px] px-1 rounded border border-blue-500/30">عرض جمله</span>
+                    )}
+                  </div>
+                </div>
               </div>
-              {product.quantity <= 5 && (
-                <div className="absolute top-2 right-2 bg-red-600 text-white text-[8px] font-black px-2 py-0.5 rounded-full shadow-lg">{product.quantity}</div>
-              )}
             </div>
           ))}
         </div>
-
-        {/* Mobile Mini-Cart View Toggle (Still needed for phones even in 'Old Shape' mode) */}
-        <div className="lg:hidden p-3 bg-gray-900 border-t border-gray-800">
-           <button 
-             onClick={() => setShowMobileCart(true)}
-             className="w-full bg-teal-600 py-3 rounded-2xl text-white font-black flex items-center justify-center gap-3 shadow-xl"
-           >
-              <span>🛒</span>
-              <span>تحصيل {total.toFixed(0)}</span>
-           </button>
-        </div>
       </div>
-
-      {/* Mobile Cart Overlay (Optional but good to keep UI functional) */}
-      {showMobileCart && (
-        <div className="fixed inset-0 z-[100] flex flex-col bg-[#0d1425] lg:hidden">
-          <div className="p-4 bg-gray-900 border-b border-gray-800 flex justify-between items-center">
-            <button onClick={() => setShowMobileCart(false)} className="bg-gray-800 p-2 rounded-xl text-xs font-bold">✕ إغلاق</button>
-            <h2 className="font-bold">سلة المشتريات</h2>
-            <div className="text-teal-500 font-black">{total.toFixed(0)} دج</div>
-          </div>
-          <div className="flex-1 overflow-hidden">
-             <CartContent />
-          </div>
-        </div>
-      )}
-
 
       {/* Payment Confirmation Modal */}
       {showPaymentModal && (
@@ -1159,10 +1282,6 @@ export default function POS({ currentUser }: POSProps) {
                 <div className="text-center">
                   <p className="text-gray-400">الضريبة ({tax}%)</p>
                   <p className="text-white font-bold">{taxAmount.toFixed(2)} {settings.currency}</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-gray-400 text-sm">طريقة الدفع</p>
-                  <p className="text-white font-bold">{getPaymentMethodLabel(paymentMethod)}</p>
                 </div>
               </div>
               <div className="border-t border-gray-600 mt-3 pt-3 text-center">
