@@ -918,25 +918,16 @@ export default function POS({ currentUser }: POSProps) {
   const quickAmounts = [100, 200, 500, 1000, 2000, 5000];
 
   const CartContent = () => (
-    <div className="flex flex-col h-full bg-[#0d1425]">
+    <div className="flex flex-col h-full bg-[#0d1425] border-l border-gray-800">
       {/* Invoice Header */}
-      <div className="p-3 border-b border-gray-700 bg-gray-900/40">
+      <div className="p-3 bg-gray-900/60 border-b border-gray-800">
         <div className="flex justify-between items-center gap-2">
-          {!showMobileCart && (
-            <button
-              onClick={toggleFullScreen}
-              className="bg-gray-800 hover:bg-gray-700 text-gray-400 p-2 rounded-xl text-sm border border-gray-700 transition-all shadow-lg"
-              title="شاشة كاملة"
-            >
-              🖥️
-            </button>
-          )}
           <div className="flex items-center gap-2 flex-1">
-            <button onClick={() => setShowAddClientModal(true)} className="bg-green-600 hover:bg-green-700 text-white w-9 h-9 rounded-xl text-xl font-bold shadow-lg shadow-green-900/20">+</button>
+            <button onClick={() => setShowAddClientModal(true)} className="bg-teal-600 hover:bg-teal-500 text-white w-8 h-8 rounded-lg text-lg font-bold transition-all shadow-lg">+</button>
             <select
               value={selectedClient}
               onChange={(e) => { setSelectedClient(e.target.value); setUsePoints(false); }}
-              className="flex-1 bg-gray-800 text-white border border-gray-700 rounded-xl px-3 py-2 text-sm outline-none focus:ring-1 ring-teal-500"
+              className="flex-1 bg-gray-800 text-white border border-gray-700 rounded-lg px-2 py-1.5 text-xs outline-none focus:ring-1 ring-teal-500"
             >
               <option value="عميل نقدي">💵 عميل نقدي</option>
               {clients.map(c => (
@@ -947,90 +938,111 @@ export default function POS({ currentUser }: POSProps) {
             </select>
           </div>
           <div className="flex gap-1">
-             <button onClick={printLastInvoice} className="bg-gray-800 hover:bg-gray-700 text-white w-8 h-8 rounded-lg flex items-center justify-center text-xs shadow-lg" title="طباعة آخر فاتورة">🖨️</button>
-             <button onClick={openCustomerDisplay} className="bg-gray-800 hover:bg-gray-700 text-white w-8 h-8 rounded-lg flex items-center justify-center text-xs shadow-lg" title="شاشة العميل">📺</button>
+             <button onClick={printLastInvoice} className="bg-gray-800 hover:bg-gray-700 text-white w-7 h-7 rounded-lg flex items-center justify-center text-[10px]" title="آخر فاتورة">🖨️</button>
+             <button onClick={openCustomerDisplay} className="bg-gray-800 hover:bg-gray-700 text-white w-7 h-7 rounded-lg flex items-center justify-center text-[10px]" title="شاشة العميل">📺</button>
           </div>
-          <div className="flex flex-col items-end shrink-0 min-w-[60px]">
-             <span className="text-[9px] text-gray-500 font-bold">{today}</span>
-             <span className="text-yellow-400 font-black text-[10px]">{invoiceId.split('-')[1]?.substring(0, 6)}</span>
+          <div className="flex flex-col items-end min-w-[50px]">
+             <span className="text-[8px] text-gray-500">{today}</span>
+             <span className="text-yellow-500 font-bold text-[9px]">{invoiceId.split('-')[1]?.substring(0, 6)}</span>
           </div>
         </div>
       </div>
 
-      {/* Cart Table */}
-      <div className="flex-1 overflow-auto bg-black/20 custom-scrollbar">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-800/80 sticky top-0 z-10 backdrop-blur-md">
-            <tr>
-              <th className="p-3 text-center text-[10px] text-gray-400 uppercase font-black">إجراء</th>
-              <th className="p-3 text-center text-[10px] text-gray-400 uppercase font-black">المجموع</th>
-              <th className="p-3 text-center text-[10px] text-gray-400 uppercase font-black">الكمية</th>
-              <th className="p-3 text-right text-[10px] text-gray-400 uppercase font-black">المنتج</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-800/50">
-            {cart.map((item) => (
-              <tr key={item.product.id} className="hover:bg-white/5 transition-all">
-                <td className="p-2 text-center flex gap-1 justify-center">
-                  <button onClick={() => removeFromCart(item.product.id!)} className="bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white w-7 h-7 rounded-lg flex items-center justify-center transition-all">✕</button>
-                  <button 
-                      onClick={() => { setEditingCartItem(item.product.id!); setTempItemPrice(item.overridePrice || item.product.sellPrice); setShowCartItemModal(true); }}
-                      className="bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500 hover:text-white w-7 h-7 rounded-lg flex items-center justify-center transition-all"
-                  >⚡</button>
-                  <button onClick={() => updateQuantity(item.product.id!, -1)} className="bg-gray-700 text-white w-7 h-7 rounded-lg flex items-center justify-center transition-all">-</button>
-                  <button onClick={() => updateQuantity(item.product.id!, 1)} className="bg-green-500/10 text-green-500 hover:bg-green-500 hover:text-white w-7 h-7 rounded-lg flex items-center justify-center transition-all">+</button>
-                </td>
-                <td className="p-2 text-center font-black text-yellow-500">
-                  {((item.overridePrice || item.product.sellPrice) * item.quantity).toFixed(0)}
-                </td>
-                <td className="p-2 text-center">
-                   <span className="bg-gray-800 px-2 py-0.5 rounded text-xs">{item.quantity}</span>
-                </td>
-                <td className="p-2 text-right font-bold text-gray-100">{item.product.name}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {/* Cart Items List */}
+      <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-2 bg-black/10">
+        {cart.length === 0 ? (
+          <div className="h-full flex flex-col items-center justify-center text-gray-600 space-y-2">
+            <span className="text-4xl">🛒</span>
+            <p className="text-sm font-bold">السلة فارغة</p>
+          </div>
+        ) : (
+          cart.map((item) => (
+            <div key={item.product.id} className="bg-gray-800/40 border border-gray-700/50 rounded-xl p-2 flex items-center gap-2 hover:bg-gray-800/60 transition-all">
+              <div className="flex-1 overflow-hidden">
+                <p className="text-xs font-bold text-gray-100 truncate">{item.product.name}</p>
+                <div className="flex justify-between items-center mt-1">
+                   <p className="text-[10px] text-teal-400 font-black">{item.overridePrice || item.product.sellPrice} <span className="text-[8px] text-gray-500">{settings.currency || 'دج'}</span></p>
+                   <p className="text-[10px] text-gray-400">× {item.quantity}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1">
+                 <button onClick={() => updateQuantity(item.product.id!, -1)} className="w-6 h-6 bg-gray-700 hover:bg-gray-600 rounded-md text-xs flex items-center justify-center">-</button>
+                 <button onClick={() => updateQuantity(item.product.id!, 1)} className="w-6 h-6 bg-gray-700 hover:bg-gray-600 rounded-md text-xs flex items-center justify-center">+</button>
+              </div>
+              <div className="text-right min-w-[50px]">
+                 <p className="text-xs font-black text-yellow-500 tracking-tighter">{((item.overridePrice || item.product.sellPrice) * item.quantity).toFixed(0)}</p>
+                 <button onClick={() => removeFromCart(item.product.id!)} className="text-[9px] text-red-500 font-bold hover:underline">حذف</button>
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
-      {/* Cart Summary */}
-      <div className="bg-[#0f172a] border-t border-gray-700 p-4 space-y-3 shadow-2xl">
-        <div className="flex justify-between items-center bg-black/40 p-3 rounded-xl border border-gray-800">
-           <div className="text-left">
-              <p className="text-[10px] text-gray-500 uppercase font-black tracking-widest">المجموع</p>
-              <p className="text-2xl text-yellow-400 font-black tracking-tighter">{total.toFixed(0)} <small className="text-[10px] text-gray-500">دج</small></p>
-           </div>
-           <div className="flex gap-1">
-              <button onClick={() => holdInvoice(false)} className="bg-gray-800 hover:bg-yellow-600 text-yellow-500 hover:text-white w-10 h-10 rounded-xl transition-all font-bold flex items-center justify-center">⏸️</button>
-              <button onClick={() => setShowDeliveryModal(true)} className="bg-gray-800 hover:bg-cyan-600 text-cyan-500 hover:text-white w-10 h-10 rounded-xl transition-all font-bold flex items-center justify-center">🚚</button>
-           </div>
-        </div>
+      {/* Numerical Keypad - The 'Old' element */}
+      <div className="bg-gray-900/80 p-2 grid grid-cols-4 gap-1 border-y border-gray-800">
+        {[1,2,3,4,5,6,7,8,9,0,'.','C'].map(val => (
+          <button 
+            key={val} 
+            className={`h-10 rounded-lg text-sm font-bold transition-all active:scale-90 ${val === 'C' ? 'bg-red-500/20 text-red-400 hover:bg-red-500' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}
+          >
+            {val}
+          </button>
+        ))}
+      </div>
 
-        <button 
-          onClick={openPaymentModal} 
-          disabled={cart.length === 0}
-          className="w-full bg-teal-600 hover:bg-teal-500 disabled:bg-gray-800 disabled:opacity-50 text-white py-4 rounded-xl font-black text-lg transition-all shadow-xl shadow-teal-900/20 active:scale-95 flex items-center justify-center gap-2"
-        >
-          <span>إتمام البيع</span>
-          <span className="bg-white/20 px-3 py-1 rounded-lg text-xs">{total.toFixed(0)}</span>
-        </button>
+      {/* Totals Section */}
+      <div className="p-3 bg-indigo-950/20 border-t border-indigo-900/30">
+        <div className="space-y-1 mb-3">
+          <div className="flex justify-between text-[11px] text-gray-400">
+             <span>المجموع الفرعي</span>
+             <span>{subtotal.toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between text-[11px] text-gray-400">
+             <span>الخصم</span>
+             <span>{discount.toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between text-base font-black text-white pt-1 border-t border-gray-800">
+             <span className="text-teal-400">الإجمالي</span>
+             <span className="text-yellow-400">{total.toFixed(0)} <small className="text-[10px]">{settings.currency || 'دج'}</small></span>
+          </div>
+        </div>
+        
+        <div className="flex gap-2">
+           <button onClick={() => cancelSale()} className="flex-1 bg-red-600/10 text-red-500 hover:bg-red-600 hover:text-white py-2 rounded-xl text-xs font-bold transition-all">إلغاء</button>
+           <button 
+            onClick={openPaymentModal} 
+            disabled={cart.length === 0}
+            className="flex-[2] bg-teal-600 hover:bg-teal-500 text-white py-3 rounded-xl font-black text-sm shadow-lg shadow-teal-900/20 transition-all flex items-center justify-center gap-2"
+           >
+             🚀 إتمام البيع
+           </button>
+        </div>
       </div>
     </div>
   );
 
+
   return (
-    <div className="flex flex-col lg:flex-row h-screen bg-[#0a0f1e] text-gray-100 overflow-hidden" dir="rtl">
-      {/* Product Content Area */}
-      <div className={`flex-1 flex flex-col h-full overflow-hidden ${showMobileCart ? 'hidden lg:flex' : 'flex'}`}>
-        {/* Top Search bar inside product area */}
-        <div className="bg-[#0f172a] border-b border-gray-800 p-3 flex flex-wrap items-center gap-3 z-30 shadow-xl">
-          <input 
-            type="text" 
-            placeholder="🔍 ابحث عن منتج..." 
-            value={searchProduct} 
-            onChange={(e) => setSearchProduct(e.target.value)}
-            className="flex-1 min-w-[150px] bg-gray-900 text-white rounded-xl px-4 py-2 text-sm border border-gray-700 focus:border-teal-500 outline-none transition-all"
-          />
+    <div className="flex h-screen bg-[#0a0f1e] text-gray-100 overflow-hidden" dir="rtl">
+      {/* Sidebar - Cart Area (Placed first for Right-side in RTL) */}
+      <div className="w-[350px] xl:w-[400px] hidden lg:flex flex-col border-l border-gray-800 bg-[#0d1425] shadow-2xl">
+        <CartContent />
+      </div>
+
+      {/* Product Content Area (Placed second for Left-side in RTL) */}
+      <div className="flex-1 flex flex-col h-full overflow-hidden bg-[#0a0f1e]">
+        {/* Top Toolbar */}
+        <div className="bg-[#111827] border-b border-gray-800 p-3 flex items-center gap-3 z-30">
+          <div className="relative flex-1">
+            <input 
+              type="text" 
+              placeholder="🔍 ابحث عن منتج..." 
+              value={searchProduct} 
+              onChange={(e) => setSearchProduct(e.target.value)}
+              className="w-full bg-gray-900/50 text-white rounded-xl pr-10 pl-4 py-2 text-sm border border-gray-800 focus:border-teal-500 outline-none transition-all shadow-inner"
+            />
+          </div>
+          
           <input
             ref={barcodeRef}
             type="text"
@@ -1038,29 +1050,31 @@ export default function POS({ currentUser }: POSProps) {
             onChange={(e) => setBarcode(e.target.value)}
             onKeyDown={handleBarcode}
             placeholder="الباركود..."
-            className="w-[120px] bg-gray-800 text-white rounded-xl px-3 py-2 text-xs border border-gray-700 focus:border-yellow-500 outline-none transition-all"
+            className="w-[100px] lg:w-[150px] bg-gray-800 text-white rounded-xl px-3 py-2 text-xs border border-gray-700 focus:border-yellow-500 outline-none transition-all"
           />
+
           <div className="flex gap-2">
-            <button onClick={() => setShowQuickAddProduct(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-xl text-sm font-bold shadow-lg" title="إضافة منتج سريع">+</button>
-            <button onClick={() => setShowHeldInvoices(true)} className="bg-amber-500 hover:bg-amber-600 text-white px-3 py-2 rounded-xl text-sm relative shadow-lg" title="الفواتير المعلقة">
+            <button onClick={() => setShowQuickAddProduct(true)} className="bg-teal-600 hover:bg-teal-500 text-white w-9 h-9 rounded-xl flex items-center justify-center font-bold shadow-lg" title="منتج سريع">+</button>
+            <button onClick={() => setShowHeldInvoices(true)} className="bg-amber-600 hover:bg-amber-500 text-white w-9 h-9 rounded-xl flex items-center justify-center relative shadow-lg" title="المعلق">
               📋
-              {heldInvoices.length > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-[8px] w-4 h-4 rounded-full flex items-center justify-center font-bold">{heldInvoices.length}</span>}
+              {heldInvoices.length > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-[8px] w-4 h-4 rounded-full flex items-center justify-center font-bold animate-pulse">{heldInvoices.length}</span>}
             </button>
-            <button onClick={() => {if(currentShift) setShowShiftCloseModal(true); else alert('لا يوجد وردية مفتوحة')}} className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-xl text-sm shadow-lg" title="تقفيل الوردية">🔒</button>
+            <button onClick={() => toggleFullScreen()} className="hidden sm:flex bg-gray-800 hover:bg-gray-700 text-white w-9 h-9 rounded-xl items-center justify-center shadow-lg" title="كامل الشاشة">🖥️</button>
+            <button onClick={() => {if(currentShift) setShowShiftCloseModal(true); else alert('لا يوجد وردية مفتوحة')}} className="bg-red-600/20 text-red-500 hover:bg-red-600 hover:text-white w-9 h-9 rounded-xl flex items-center justify-center shadow-lg" title="تقفيل">🔒</button>
           </div>
         </div>
 
         {/* Categories Tabs */}
-        <div className="p-2 bg-black/10 flex gap-2 overflow-x-auto no-scrollbar shrink-0 shadow-inner">
+        <div className="px-3 py-2 bg-[#0f172a]/50 flex gap-2 overflow-x-auto no-scrollbar shadow-inner">
           <button
             onClick={() => setSelectedCategory('الكل')}
-            className={`whitespace-nowrap px-4 py-1.5 rounded-lg text-xs font-black transition-all ${selectedCategory === 'الكل' ? 'bg-teal-600 text-white' : 'bg-gray-800/50 text-gray-500 hover:text-gray-300'}`}
+            className={`whitespace-nowrap px-4 py-1.5 rounded-xl text-xs font-black transition-all ${selectedCategory === 'الكل' ? 'bg-teal-600 text-white shadow-lg shadow-teal-900/20' : 'bg-gray-800 text-gray-500 hover:bg-gray-700'}`}
           >📦 الكل</button>
           {categories.map(cat => (
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat)}
-              className={`whitespace-nowrap px-4 py-1.5 rounded-lg text-xs font-black transition-all ${selectedCategory === cat ? 'bg-indigo-600 text-white' : 'bg-gray-800/50 text-gray-500 hover:text-gray-300'}`}
+              className={`whitespace-nowrap px-4 py-1.5 rounded-xl text-xs font-black transition-all ${selectedCategory === cat ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20' : 'bg-gray-800 text-gray-500 hover:bg-gray-700'}`}
             >
               {cat}
             </button>
@@ -1068,53 +1082,54 @@ export default function POS({ currentUser }: POSProps) {
         </div>
 
         {/* Product Grid */}
-        <div className="flex-1 overflow-auto p-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4 gap-3 content-start">
+        <div className="flex-1 overflow-y-auto p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-5 gap-4 content-start custom-scrollbar">
           {filteredProducts.map(product => (
             <div
               key={product.id}
               onClick={() => addToCart(product)}
-              className={`relative group bg-[#1e293b] border border-gray-800 hover:border-teal-500/50 hover:bg-[#233149] rounded-2xl p-3 transition-all active:scale-[0.98] cursor-pointer flex flex-col h-[160px] shadow-lg ${product.quantity <= 0 ? 'grayscale opacity-40' : ''}`}
+              className={`relative group bg-[#1e293b] border border-gray-800 hover:border-teal-500/50 hover:bg-[#233149] rounded-2xl p-3 shadow-xl transition-all cursor-pointer flex flex-col h-[180px] hover:-translate-y-1 ${product.quantity <= 0 ? 'grayscale opacity-40' : ''}`}
             >
               <div className="flex-1 flex flex-col items-center justify-center text-center">
-                <span className="text-3xl mb-2 group-hover:scale-110 transition-transform">{product.image ? '📸' : '📦'}</span>
-                <h3 className="text-xs font-black text-gray-100 line-clamp-2">{product.name}</h3>
+                <span className="text-4xl mb-2 group-hover:scale-110 transition-transform">{product.image ? '📸' : (categories.find(c => c === product.category) ? '🏷️' : '📦')}</span>
+                <h3 className="text-[11px] font-black text-gray-200 line-clamp-2 leading-tight">{product.name}</h3>
               </div>
-              <div className="mt-2 w-full bg-black/40 rounded-xl py-1 px-3 flex justify-between items-center group-hover:bg-teal-900/20 transition-colors">
-                <span className="text-teal-400 font-black text-sm">{product.sellPrice.toFixed(0)}</span>
-                <span className="text-[9px] text-gray-500 font-bold tracking-widest">{settings.currency || 'دج'}</span>
+              <div className="mt-3 w-full bg-black/40 rounded-xl py-2 px-3 flex justify-between items-center ring-1 ring-gray-700/50">
+                <span className="text-teal-400 font-black text-base tracking-tighter">{product.sellPrice.toFixed(0)}</span>
+                <span className="text-[8px] text-gray-500 font-bold uppercase">{settings.currency || 'دج'}</span>
               </div>
               {product.quantity <= 5 && (
-                <div className="absolute top-2 right-2 bg-red-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full">{product.quantity}</div>
+                <div className="absolute top-2 right-2 bg-red-600 text-white text-[8px] font-black px-2 py-0.5 rounded-full shadow-lg">{product.quantity}</div>
               )}
             </div>
           ))}
         </div>
-        {/* Collection bar for mobile */}
-        <div className="lg:hidden p-3 bg-[#0f172a] border-t border-gray-800 z-30 shadow-2xl">
+
+        {/* Mobile Mini-Cart View Toggle (Still needed for phones even in 'Old Shape' mode) */}
+        <div className="lg:hidden p-3 bg-gray-900 border-t border-gray-800">
            <button 
              onClick={() => setShowMobileCart(true)}
-             className="w-full bg-teal-600 hover:bg-teal-500 text-white py-4 rounded-xl flex items-center justify-center gap-3 shadow-xl active:scale-95 transition-all"
+             className="w-full bg-teal-600 py-3 rounded-2xl text-white font-black flex items-center justify-center gap-3 shadow-xl"
            >
-              <span className="text-xl">🛒</span>
-              <span className="font-black text-lg">تحصيل {total.toFixed(0)} دج</span>
-              <span className="bg-white text-teal-700 w-6 h-6 rounded-full text-[10px] flex items-center justify-center font-black">{cart.length}</span>
+              <span>🛒</span>
+              <span>تحصيل {total.toFixed(0)}</span>
            </button>
         </div>
       </div>
 
-      {/* Sidebar - Cart Area */}
-      <div className={`${showMobileCart ? 'fixed inset-0 z-[100] flex flex-col bg-[#0a0f1e] animate-in slide-in-from-left duration-300' : 'hidden lg:flex lg:w-[380px] xl:w-[420px] flex-col border-r border-gray-800 bg-[#0d1425]'} h-full transition-all`}>
-        {showMobileCart && (
-          <div className="p-4 bg-[#161d31] border-b border-gray-700 flex justify-between items-center shrink-0 shadow-xl">
-             <button onClick={() => setShowMobileCart(false)} className="text-gray-400 hover:text-white p-2 bg-gray-800 rounded-xl active:scale-90 transition-all font-bold">✕ إغلاق</button>
-             <h2 className="font-black text-xl text-white">سلة المبيعات</h2>
-             <button onClick={cancelSale} className="text-red-500 font-black text-xs">🗑️ تفريغ</button>
+      {/* Mobile Cart Overlay (Optional but good to keep UI functional) */}
+      {showMobileCart && (
+        <div className="fixed inset-0 z-[100] flex flex-col bg-[#0d1425] lg:hidden">
+          <div className="p-4 bg-gray-900 border-b border-gray-800 flex justify-between items-center">
+            <button onClick={() => setShowMobileCart(false)} className="bg-gray-800 p-2 rounded-xl text-xs font-bold">✕ إغلاق</button>
+            <h2 className="font-bold">سلة المشتريات</h2>
+            <div className="text-teal-500 font-black">{total.toFixed(0)} دج</div>
           </div>
-        )}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <CartContent />
+          <div className="flex-1 overflow-hidden">
+             <CartContent />
+          </div>
         </div>
-      </div>
+      )}
+
 
       {/* Payment Confirmation Modal */}
       {showPaymentModal && (
