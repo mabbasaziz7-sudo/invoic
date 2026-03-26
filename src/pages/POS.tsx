@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Product, CartItem, Invoice, Client, PaymentMethod, User, Coupon, ProductOffer, Shift } from '../types';
-import { getProducts, saveProduct, getClients, saveClient, getInvoices, saveInvoice, getSettings, getCategories, saveCartDisplay, getUserPermissions, getCoupons, getProductOffers, logoutUser, getOpenShift, openShift, closeShift } from '../store';
+import { getProducts, saveProduct, getClients, saveClient, getInvoices, saveInvoice, getSettings, getCategories, saveCartDisplay, getUserPermissions, getCoupons, getProductOffers, getOpenShift, openShift, closeShift } from '../store';
 
 interface POSProps {
   currentUser?: User | null;
@@ -128,11 +128,13 @@ export default function POS({ currentUser }: POSProps) {
     };
   }, [currentUser, currentShift]);
 
-  const enterFullScreen = () => {
+  const toggleFullScreen = () => {
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen().catch(err => {
         console.error(`Error attempting to enable full-screen mode: ${err.message}`);
       });
+    } else {
+      document.exitFullscreen();
     }
   };
 
@@ -372,7 +374,6 @@ export default function POS({ currentUser }: POSProps) {
          const s = await openShift(currentUser.id, initialShiftCash);
          setCurrentShift(s);
          setShowShiftOpenModal(false);
-         enterFullScreen();
        } catch (err: any) { 
          console.error('Shift open error:', err);
          alert(`خطأ في فتح الوردية: ${err.message || 'تأكد من تحديث قاعدة البيانات'}`); 
@@ -583,8 +584,6 @@ export default function POS({ currentUser }: POSProps) {
       }
 
       alert('تمت عملية البيع بنجاح! ✅');
-      // Re-enter full screen after print
-      setTimeout(enterFullScreen, 1000);
     } catch (err) {
       console.error('Sale confirmation failed:', err);
       alert('فشل إتمام العملية: ' + (err as any).message);
@@ -923,6 +922,13 @@ export default function POS({ currentUser }: POSProps) {
         {/* Invoice Header */}
         <div className="p-1 lg:p-1.5 border-b border-gray-700 bg-gray-900/30">
           <div className="flex justify-between items-center gap-2">
+            <button 
+              onClick={toggleFullScreen}
+              className="bg-gray-800 hover:bg-gray-700 text-gray-400 p-1 rounded-lg text-[10px] border border-gray-700 transition-all"
+              title="شاشة كاملة"
+            >
+              🖥️
+            </button>
             <div className="flex items-center gap-1.5 flex-1">
               <button onClick={() => setShowAddClientModal(true)} className="bg-green-600 hover:bg-green-700 text-white w-6 h-6 rounded text-xs font-bold">+</button>
               <select value={selectedClient} onChange={(e) => { setSelectedClient(e.target.value); setUsePoints(false); }} className="flex-1 bg-gray-800 text-white border border-gray-700 rounded px-2 py-0.5 text-[10px] lg:text-xs">
