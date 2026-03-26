@@ -40,10 +40,37 @@ export default function Purchases() {
   useEffect(() => {
     loadData();
     setIsLoaded(true);
+    
+    // Load draft from localStorage
+    const savedCart = localStorage.getItem('purchase_draft_cart');
+    const savedInvoice = localStorage.getItem('purchase_draft_invoice');
+    if (savedCart) setCart(JSON.parse(savedCart));
+    if (savedInvoice) {
+       const draft = JSON.parse(savedInvoice);
+       setInvoiceDraft(draft);
+       setEditingInvoice(draft);
+    }
+
     const handleFs = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener('fullscreenchange', handleFs);
     return () => document.removeEventListener('fullscreenchange', handleFs);
   }, []);
+
+  useEffect(() => {
+    if (cart.length > 0) {
+      localStorage.setItem('purchase_draft_cart', JSON.stringify(cart));
+    } else {
+      localStorage.removeItem('purchase_draft_cart');
+    }
+  }, [cart]);
+
+  useEffect(() => {
+    if (invoiceDraft) {
+      localStorage.setItem('purchase_draft_invoice', JSON.stringify(invoiceDraft));
+    } else {
+      localStorage.removeItem('purchase_draft_invoice');
+    }
+  }, [invoiceDraft]);
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -151,7 +178,7 @@ export default function Purchases() {
   const openNewInvoice = () => {
     if (cart.length > 0 || invoiceDraft) {
       // If there's a draft, just show it
-      setEditingInvoice(invoiceDraft || {
+      const currentDraft = invoiceDraft || {
         invoiceNumber: `PI-${Date.now().toString().slice(-6)}`,
         date: new Date().toISOString().split('T')[0],
         supplierId: suppliers[0]?.id || 0,
@@ -162,7 +189,9 @@ export default function Purchases() {
         remaining: 0,
         paymentStatus: 'unpaid' as const,
         items: []
-      });
+      };
+      setEditingInvoice(currentDraft);
+      setInvoiceDraft(currentDraft);
     } else {
       const initialInvoice: Partial<PurchaseInvoice> = {
         invoiceNumber: `PI-${Date.now().toString().slice(-6)}`,
@@ -191,6 +220,8 @@ export default function Purchases() {
       setCart([]);
       setInvoiceDraft(null);
       setEditingInvoice(null);
+      localStorage.removeItem('purchase_draft_cart');
+      localStorage.removeItem('purchase_draft_invoice');
       setShowInvoiceModal(false);
     } else {
       setShowInvoiceModal(false); // Just hide it, keep draft
@@ -277,6 +308,8 @@ export default function Purchases() {
     setCart([]);
     setInvoiceDraft(null);
     setEditingInvoice(null);
+    localStorage.removeItem('purchase_draft_cart');
+    localStorage.removeItem('purchase_draft_invoice');
     loadData();
     alert('تم حفظ فاتورة المشتريات وإضافة المخزون بنجاح ✅');
   };
