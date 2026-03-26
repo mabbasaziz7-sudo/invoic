@@ -24,12 +24,13 @@ export default function Purchases() {
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<Partial<PurchaseInvoice> | null>(null);
   
-  // New invoice cart
+  // New invoice cart (Draft)
   const [cart, setCart] = useState<PurchaseItem[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<number | ''>('');
   const [qty, setQty] = useState<number>(1);
   const [cost, setCost] = useState<number>(0);
   const [barcodeInput, setBarcodeInput] = useState('');
+  const [invoiceDraft, setInvoiceDraft] = useState<Partial<PurchaseInvoice> | null>(null);
 
   // Payment state
   const [showPayModal, setShowPayModal] = useState(false);
@@ -148,23 +149,52 @@ export default function Purchases() {
 
   // --- Invoices Methods ---
   const openNewInvoice = () => {
-    setCart([]);
-    setEditingInvoice({
-      invoiceNumber: `PI-${Date.now().toString().slice(-6)}`,
-      date: new Date().toISOString().split('T')[0],
-      supplierId: suppliers[0]?.id || 0,
-      subtotal: 0,
-      discount: 0,
-      total: 0,
-      paid: 0,
-      remaining: 0,
-      paymentStatus: 'unpaid',
-      items: []
-    });
+    if (cart.length > 0 || invoiceDraft) {
+      // If there's a draft, just show it
+      setEditingInvoice(invoiceDraft || {
+        invoiceNumber: `PI-${Date.now().toString().slice(-6)}`,
+        date: new Date().toISOString().split('T')[0],
+        supplierId: suppliers[0]?.id || 0,
+        subtotal: 0,
+        discount: 0,
+        total: 0,
+        paid: 0,
+        remaining: 0,
+        paymentStatus: 'unpaid' as const,
+        items: []
+      });
+    } else {
+      const initialInvoice: Partial<PurchaseInvoice> = {
+        invoiceNumber: `PI-${Date.now().toString().slice(-6)}`,
+        date: new Date().toISOString().split('T')[0],
+        supplierId: suppliers[0]?.id || 0,
+        subtotal: 0,
+        discount: 0,
+        total: 0,
+        paid: 0,
+        remaining: 0,
+        paymentStatus: 'unpaid' as const,
+        items: []
+      };
+      setEditingInvoice(initialInvoice);
+      setInvoiceDraft(initialInvoice);
+    }
+    
     setSelectedProduct(products[0]?.id || '');
     const p = products[0];
     if (p) setCost(p.buyPrice);
     setShowInvoiceModal(true);
+  };
+
+  const cancelInvoice = () => {
+    if (confirm('هل تريد مسح المسودة وإلغاء الفاتورة؟')) {
+      setCart([]);
+      setInvoiceDraft(null);
+      setEditingInvoice(null);
+      setShowInvoiceModal(false);
+    } else {
+      setShowInvoiceModal(false); // Just hide it, keep draft
+    }
   };
 
   const addToCart = () => {
@@ -244,6 +274,9 @@ export default function Purchases() {
     }
 
     setShowInvoiceModal(false);
+    setCart([]);
+    setInvoiceDraft(null);
+    setEditingInvoice(null);
     loadData();
     alert('تم حفظ فاتورة المشتريات وإضافة المخزون بنجاح ✅');
   };
@@ -347,6 +380,17 @@ export default function Purchases() {
           الموردين
         </button>
       </div>
+
+      {cart.length > 0 && !showInvoiceModal && (
+        <div className="fixed bottom-6 left-6 z-40 animate-bounce">
+          <button 
+            onClick={() => setShowInvoiceModal(true)}
+            className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-full shadow-2xl font-bold flex items-center gap-2 border-2 border-white/20"
+          >
+            🛒 متابعة المسودة ({cart.length})
+          </button>
+        </div>
+      )}
 
       {/* --- INVOICES TAB --- */}
       {activeTab === 'invoices' && (
@@ -554,7 +598,10 @@ export default function Purchases() {
           <div className="bg-[#1e293b] rounded-2xl w-full max-w-4xl border border-gray-700 shadow-2xl overflow-hidden flex flex-col h-[90vh]" onClick={e => e.stopPropagation()}>
             <div className="bg-gray-800 p-4 border-b border-gray-700 flex justify-between items-center">
               <h3 className="font-bold text-teal-400 text-lg">📝 فاتورة شراء / توريد جديدة</h3>
-              <button onClick={() => setShowInvoiceModal(false)} className="text-gray-400 hover:text-white text-xl">✕</button>
+              <div className="flex gap-2">
+                <button onClick={() => setShowInvoiceModal(false)} className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded-lg text-xs font-bold">إخفاء (حفظ مسودة)</button>
+                <button onClick={cancelInvoice} className="text-gray-400 hover:text-red-500 p-2 text-xl">✕</button>
+              </div>
             </div>
             
             <div className="flex-1 overflow-auto p-4 md:p-6 flex flex-col lg:flex-row gap-6">
@@ -602,35 +649,44 @@ export default function Purchases() {
                         </div>
                       </div>
                       <button type="button" onClick={addToCart} className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-2.5 rounded-xl transition-all mt-2 shadow-lg">
-                        إضافة للقائمة ↓
+                        إضافة ↓
                       </button>
                     </div>
                  </div>
               </div>
 
               {/* Left Side - Cart & Totals */}
-              <div className="w-full lg:w-2/3 flex flex-col order-1 lg:order-2">
-                <div className="flex-1 bg-gray-900/50 rounded-2xl border border-gray-700 overflow-hidden flex flex-col min-h-[300px]">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead className="bg-gray-800 text-gray-300 sticky top-0">
+              <div className="w-full lg:w-2/3 flex flex-col order-1 lg:order-2 overflow-hidden">
+                <div className="flex-1 bg-gray-900/50 rounded-2xl border border-gray-700 overflow-hidden flex flex-col min-h-[250px] lg:min-h-[400px]">
+                  <div className="overflow-auto flex-1 custom-scrollbar">
+                    <table className="w-full text-xs md:text-sm">
+                      <thead className="bg-gray-800 text-gray-400 sticky top-0 z-10">
                         <tr>
-                          <th className="p-3 text-right">المنتج</th>
-                          <th className="p-3 text-center">الكمية</th>
-                          <th className="p-3 text-center">التكلفة</th>
-                          <th className="p-3 text-center">الإجمالي</th>
-                          <th className="p-3 text-center w-10"></th>
+                          <th className="p-2 md:p-4 text-right">المنتج</th>
+                          <th className="p-2 md:p-4 text-center">الكمية</th>
+                          <th className="p-2 md:p-4 text-center hidden sm:table-cell">التكلفة</th>
+                          <th className="p-2 md:p-4 text-center">المجموع</th>
+                          <th className="p-2 md:p-4 text-center w-10"></th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-800 overflow-y-auto max-h-[250px] custom-scrollbar">
-                        {cart.length === 0 && <tr><td colSpan={5} className="p-10 text-center text-gray-600">لم يتم إضافة منتجات للفاتورة بعد</td></tr>}
+                      <tbody className="divide-y divide-gray-800">
+                        {cart.length === 0 && <tr><td colSpan={5} className="p-10 text-center text-gray-500 italic">أضف منتجات من القائمة الجانبية...</td></tr>}
                         {cart.map((c, i) => (
-                          <tr key={i} className="hover:bg-gray-800/50 transition-colors">
-                            <td className="p-3 font-bold text-white">{c.productName}</td>
-                            <td className="p-3 text-center text-teal-400 font-bold">{c.quantity}</td>
-                            <td className="p-3 text-center text-gray-400">{c.unitPrice.toFixed(2)}</td>
-                            <td className="p-3 text-center text-yellow-400 font-bold">{c.total.toFixed(2)}</td>
-                            <td className="p-3 text-center"><button onClick={() => removeFromCart(i)} className="text-red-500 hover:bg-red-900/40 w-8 h-8 rounded-full flex items-center justify-center transition-all">✕</button></td>
+                          <tr key={i} className="hover:bg-white/5 transition-colors group">
+                            <td className="p-2 md:p-4 font-bold text-white">
+                              <div className="flex flex-col">
+                                <span className="truncate">{c.productName}</span>
+                                <span className="text-[10px] text-gray-500 sm:hidden">تكلفة: {c.unitPrice.toFixed(2)}</span>
+                              </div>
+                            </td>
+                            <td className="p-2 md:p-4 text-center">
+                              <span className="bg-teal-500/10 text-teal-400 px-2 py-1 rounded-lg font-bold">{c.quantity}</span>
+                            </td>
+                            <td className="p-2 md:p-4 text-center text-gray-400 hidden sm:table-cell">{c.unitPrice.toFixed(2)}</td>
+                            <td className="p-2 md:p-4 text-center text-yellow-400 font-bold">{c.total.toFixed(2)}</td>
+                            <td className="p-2 md:p-4 text-center">
+                              <button onClick={() => removeFromCart(i)} className="text-red-500/50 group-hover:text-red-500 hover:bg-red-900/40 w-8 h-8 rounded-full flex items-center justify-center transition-all">✕</button>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -638,7 +694,7 @@ export default function Purchases() {
                   </div>
                 </div>
 
-                <form onSubmit={handleSaveInvoice} className="mt-4 bg-gray-800/50 p-6 rounded-2xl border border-gray-700 backdrop-blur-sm">
+                <form onSubmit={handleSaveInvoice} className="mt-3 md:mt-4 bg-gray-800/50 p-3 md:p-6 rounded-2xl border border-gray-700 backdrop-blur-sm">
                   {(() => {
                     const subtotal = cart.reduce((sum, item) => sum + item.total, 0);
                     const discount = Number(editingInvoice.discount || 0);
@@ -646,33 +702,41 @@ export default function Purchases() {
                     const paid = Number(editingInvoice.paid || 0);
                     const remaining = total - paid;
                     return (
-                      <div className="flex flex-col gap-4">
-                        <div className="flex justify-between items-center bg-gray-900/50 px-6 py-3 rounded-xl border border-gray-700">
-                          <span className="text-gray-400 font-bold text-sm">إجمالي الفاتورة:</span>
-                          <span className="text-2xl font-black text-white">{subtotal.toFixed(2)}</span>
+                      <div className="flex flex-col gap-2 md:gap-4">
+                        <div className="flex justify-between items-center bg-gray-900/50 px-3 md:px-6 py-2 md:py-3 rounded-xl border border-gray-700">
+                          <span className="text-gray-400 font-bold text-xs md:text-sm">الإجمالي:</span>
+                          <span className="text-lg md:text-2xl font-black text-white">{subtotal.toFixed(2)}</span>
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-2 gap-2 md:gap-4">
                           <div>
-                            <label className="text-xs text-gray-500 mb-1 block">الخصم المكتسب</label>
-                            <input type="number" min="0" max={subtotal} value={editingInvoice.discount || 0} onChange={e => setEditingInvoice({...editingInvoice, discount: Number(e.target.value)})} className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-2.5 text-white text-center font-bold" />
+                            <label className="text-[10px] md:text-xs text-gray-500 mb-1 block">الخصم</label>
+                            <input type="number" min="0" max={subtotal} value={editingInvoice.discount || 0} onChange={e => {
+                              const newInv = {...editingInvoice, discount: Number(e.target.value)};
+                              setEditingInvoice(newInv);
+                              setInvoiceDraft(newInv);
+                            }} className="w-full bg-gray-900 border border-gray-700 rounded-lg md:rounded-xl px-2 md:px-4 py-1.5 md:py-2.5 text-white text-center font-bold text-sm md:text-base" />
                           </div>
                           <div>
-                            <label className="text-xs text-gray-500 mb-1 block">الصافي للدفع</label>
-                            <div className="w-full bg-yellow-500/10 border border-yellow-500/20 rounded-xl px-4 py-2 text-yellow-500 text-center font-black text-xl">{total.toFixed(2)}</div>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <label className="text-xs text-green-500 mb-1 block">المدفوع نقداً</label>
-                            <input type="number" min="0" max={total} value={editingInvoice.paid || 0} onChange={e => setEditingInvoice({...editingInvoice, paid: Number(e.target.value)})} className="w-full bg-green-500/10 border border-green-500/20 rounded-xl px-4 py-2.5 text-green-400 font-black text-center text-xl shadow-inner shadow-green-900/20" />
-                          </div>
-                          <div>
-                            <label className="text-xs text-red-500 mb-1 block">الباقي (دين للمورد)</label>
-                            <div className="w-full bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2 text-red-400 text-center font-black text-xl">{remaining.toFixed(2)}</div>
+                            <label className="text-[10px] md:text-xs text-gray-500 mb-1 block">الصافي</label>
+                            <div className="w-full bg-yellow-500/10 border border-yellow-500/20 rounded-lg md:rounded-xl px-2 md:px-4 py-1 md:py-2 text-yellow-500 text-center font-black text-sm md:text-xl">{total.toFixed(2)}</div>
                           </div>
                         </div>
-                        <button type="submit" disabled={cart.length === 0} className="w-full bg-teal-600 hover:bg-teal-700 disabled:bg-gray-800 disabled:text-gray-600 text-white font-bold py-4 rounded-2xl transition-all mt-2 shadow-xl text-lg flex items-center justify-center gap-2">
-                          {cart.length === 0 ? '❌ أضف منتجات أولاً' : '✅ حفظ الفاتورة وإضافة للمخزون'}
+                        <div className="grid grid-cols-2 gap-2 md:gap-4">
+                          <div>
+                            <label className="text-[10px] md:text-xs text-green-500 mb-1 block">المدفوع</label>
+                            <input type="number" min="0" max={total} value={editingInvoice.paid || 0} onChange={e => {
+                              const newInv = {...editingInvoice, paid: Number(e.target.value)};
+                              setEditingInvoice(newInv);
+                              setInvoiceDraft(newInv);
+                            }} className="w-full bg-green-500/10 border border-green-500/20 rounded-lg md:rounded-xl px-2 md:px-4 py-1.5 md:py-2.5 text-green-400 font-black text-center text-sm md:text-xl shadow-inner shadow-green-900/20" />
+                          </div>
+                          <div>
+                            <label className="text-[10px] md:text-xs text-red-500 mb-1 block">الباقي</label>
+                            <div className="w-full bg-red-500/10 border border-red-500/20 rounded-lg md:rounded-xl px-2 md:px-4 py-1 md:py-2 text-red-400 text-center font-black text-sm md:text-xl">{remaining.toFixed(2)}</div>
+                          </div>
+                        </div>
+                        <button type="submit" disabled={cart.length === 0} className="w-full bg-teal-600 hover:bg-teal-700 disabled:bg-gray-800 disabled:text-gray-600 text-white font-bold py-3 md:py-4 rounded-xl md:rounded-2xl transition-all mt-1 md:mt-2 shadow-xl text-sm md:text-lg flex items-center justify-center gap-2">
+                          {cart.length === 0 ? '❌ فارغة' : '✅ حفظ الفاتورة'}
                         </button>
                       </div>
                     )
